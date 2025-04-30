@@ -11,17 +11,19 @@ import io.realm.kotlin.Realm
 import io.realm.kotlin.RealmConfiguration
 import io.realm.kotlin.ext.query
 import io.realm.kotlin.query.Sort
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class HomeViewModel : ViewModel() {
 
-    // Репозиторий Audius API
+    /* ---------- зависимости ---------- */
+
     private val repo = AudiusRepository(RetrofitInstance.api)
 
-    // Realm-БД для SavedTrack
     private val realm: Realm by lazy {
         Realm.open(
             RealmConfiguration.Builder(schema = setOf(SavedTrack::class))
@@ -32,71 +34,75 @@ class HomeViewModel : ViewModel() {
         )
     }
 
-    /* ---------- StateFlows ---------- */
+    /* ---------- UI-state ---------- */
 
     private val _recentAlbums   = MutableStateFlow<List<AlbumDisplay>>(emptyList())
-    val recentAlbums:   StateFlow<List<AlbumDisplay>> = _recentAlbums
+    val   recentAlbums:   StateFlow<List<AlbumDisplay>> = _recentAlbums
 
     private val _dailyAlbums    = MutableStateFlow<List<AlbumDisplay>>(emptyList())
-    val dailyAlbums:    StateFlow<List<AlbumDisplay>> = _dailyAlbums
+    val   dailyAlbums:    StateFlow<List<AlbumDisplay>> = _dailyAlbums
 
     private val _featuredTracks = MutableStateFlow<List<Track>>(emptyList())
-    val featuredTracks: StateFlow<List<Track>> = _featuredTracks
+    val   featuredTracks: StateFlow<List<Track>> = _featuredTracks
 
     private val _isLoading      = MutableStateFlow(false)
-    val isLoading:      StateFlow<Boolean> = _isLoading
+    val   isLoading:      StateFlow<Boolean> = _isLoading
 
-    /** Загружает Recently, Daily Mix и Featured */
+    /* ---------- публичный метод ---------- */
+
     fun loadHomeData(userId: String) {
         viewModelScope.launch {
             _isLoading.value = true
+
             try {
-                /* ---------- 1. Recently Played  ---------- */
-                val savedList = realm
-                    .query<SavedTrack>("userId == $0", userId)
-                    .sort("playedAt", Sort.DESCENDING)
-                    .find()
+                /* --- работаем на фоне --- */
+                val result = withContext(Dispatchers.IO) {
 
-                val recentTemp = savedList
-                    .groupBy { it.trackUserId }                      // один альбом на артиста
-                    .map { (_, list) ->
-                        val first = list.first()
-                        AlbumDisplay(
-                            userId   = first.trackUserId,
-                            title    = first.artist,
-                            coverUrl = first.imageUrl
-                        )
-                    }
+                    /* === 1. Recently Played =================================================== */
+                    val saved = realm
+                        .query<SavedTrack>("userId == $0", userId)
+                        .sort("playedAt", Sort.DESCENDING)
+                        .find()
 
-                /* ---------- 2. Daily Mix  ---------- */
-                val deferredLists = recentTemp.map { album ->
-                    async { repo.searchTracks(album.title) }         // похожие треки
+                    val recent = saved
+                        .groupBy { it.trackUserId }            // один альбом на артиста
+                        .values
+                        .map { list ->
+                            val first = list.first()
+                            AlbumDisplay(
+                                userId   = first.trackUserId,
+                                title    = first.artist,
+                                coverUrl = first.imageUrl
+                            )
+                        }
+
+                    /* === 2. Daily Mix (похожие треки) ====================================== */
+                    val mixes = recent.map { album ->
+                        async { repo.searchTracks(album.title) }
+                    }.flatMap { it.await() }
+
+                    val daily = mixes
+                        .groupBy { it.user.id }
+                        .values
+                        .map { list ->
+                            AlbumDisplay(
+                                userId   = list.first().user.id,
+                                title    = list.first().user.name,
+                                coverUrl = list.first().artwork?.`150x150`
+                            )
+                        }
+                        .filter { it.userId !in recent.map { r -> r.userId } }
+
+                    /* === 3. Featured ======================================================== */
+                    val featured = repo.searchTracks("electronic")
+
+                    Triple(recent, daily, featured)
                 }
-                val allMixTracks = deferredLists.flatMap { it.await() }
 
-                val dailyTemp = allMixTracks
-                    .groupBy { it.user.id }                          // по артисту
-                    .map { (aid, list) ->
-                        AlbumDisplay(
-                            userId   = aid,
-                            title    = list.first().user.name,
-                            coverUrl = list.first().artwork?.`150x150`
-                        )
-                    }
-                    .filter { it.userId !in recentTemp.map { r -> r.userId } }  // исключаем повторы
-
-                /* ---------- 3. Убираем повторы из recent ---------- */
-                val recentUnique = recentTemp.filter { album ->
-                    album.userId !in dailyTemp.map { d -> d.userId }
-                }
-
-                /* ---------- 4. Featured ---------- */
-                val featured = repo.searchTracks("electronic")
-
-                /* ---------- 5. Publish ---------- */
-                _recentAlbums.value   = recentUnique
-                _dailyAlbums.value    = dailyTemp
-                _featuredTracks.value = featured
+                /* --- публикуем результат на UI-потоке --- */
+                _recentAlbums.value   = result.first
+                _dailyAlbums.value    = result.second
+                _featuredTracks.value = result.third
 
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -104,5 +110,10 @@ class HomeViewModel : ViewModel() {
                 _isLoading.value = false
             }
         }
+    }
+
+    override fun onCleared() {
+        realm.close()
+        super.onCleared()
     }
 }
