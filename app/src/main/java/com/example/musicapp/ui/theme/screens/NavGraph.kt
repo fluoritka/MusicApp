@@ -8,6 +8,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.example.musicapp.model.Track
 import com.example.musicapp.ui.theme.viewmodel.AuthViewModel
 import com.example.musicapp.viewmodel.HomeViewModel
 import com.example.musicapp.viewmodel.SearchViewModel
@@ -48,10 +49,10 @@ fun NavGraph(
         composable("home") {
             val homeVm: HomeViewModel = viewModel()
             HomeScreen(
-                onGoToPlayer = { navController.navigate("player") },
+                onPlayTrack = { _: Track -> navController.navigate("player") },
                 onAlbumClick = { id -> navController.navigate("album/$id") },
-                authViewModel = authVm,
-                homeViewModel = homeVm
+                authVm  = authVm,
+                homeVm  = homeVm
             )
         }
 

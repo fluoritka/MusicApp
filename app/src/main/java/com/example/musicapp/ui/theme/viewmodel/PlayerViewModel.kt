@@ -18,10 +18,10 @@ import kotlinx.coroutines.launch
 
 class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
-    /* -------- ExoPlayer -------- */
+    /* ---------- ExoPlayer ---------- */
     private val exo = ExoPlayer.Builder(app).build()
 
-    /* -------- Realm -------- */
+    /* ---------- Realm ---------- */
     private val realm: Realm by lazy {
         Realm.open(
             RealmConfiguration.Builder(schema = setOf(SavedTrack::class))
@@ -32,33 +32,35 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         )
     }
 
-    /* -------- UI-state -------- */
-    private val _queue = MutableStateFlow<List<Track>>(emptyList())
+    /* ---------- UI-state ---------- */
+    private val _queue   = MutableStateFlow<List<Track>>(emptyList())
     val   queue: StateFlow<List<Track>> = _queue
 
-    private val _index = MutableStateFlow(-1)
+    private val _index   = MutableStateFlow(-1)
     val   index: StateFlow<Int> = _index
 
-    private val _currentTrack = MutableStateFlow<Track?>(null)
-    val   currentTrack: StateFlow<Track?> = _currentTrack
+    private val _current = MutableStateFlow<Track?>(null)
+    val   currentTrack: StateFlow<Track?> = _current
 
     private val _isPlaying = MutableStateFlow(false)
-    val   isPlaying: StateFlow<Boolean> = _isPlaying
+    val   isPlaying:  StateFlow<Boolean> = _isPlaying
 
     private val _progress  = MutableStateFlow(0f)
-    val   progress : StateFlow<Float> = _progress
+    val   progress:  StateFlow<Float> = _progress
 
     init {
+        /* обновляем progress каждые 0.5 с */
         viewModelScope.launch {
             while (true) {
-                val dur = exo.duration.takeIf { it > 0 } ?: 1
+                val dur = exo.duration.takeIf { it > 0 } ?: 1L
                 _progress.value = exo.currentPosition / dur.toFloat()
                 delay(500)
             }
         }
     }
 
-    /* -------- public API -------- */
+    /* ---------- public API ---------- */
+
     fun play(track: Track, queue: List<Track> = _queue.value) {
         val newIdx = queue.indexOfFirst { it.id == track.id }
         if (newIdx == -1) return
@@ -75,39 +77,37 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     fun skipNext() {
         val next = _index.value + 1
-        if (next < _queue.value.size) {
-            play(_queue.value[next])
-        }
+        if (next < _queue.value.size) play(_queue.value[next])
     }
 
     fun skipPrevious() {
         val prev = _index.value - 1
-        if (prev >= 0) {
-            play(_queue.value[prev])
-        }
+        if (prev >= 0) play(_queue.value[prev])
     }
 
-    /* -------- helpers -------- */
+    /* ---------- helpers ---------- */
+
     private fun start(tr: Track) {
         exo.stop(); exo.clearMediaItems()
         exo.setMediaItem(MediaItem.fromUri(tr.streamUrl))
         exo.prepare(); exo.play()
 
-        _currentTrack.value = tr
-        _isPlaying.value    = true
+        _current.value   = tr
+        _isPlaying.value = true
 
-        /* --- сохраняем историю (IO) --- */
+        /* --- сохраняем историю прослушиваний (IO-поток) --- */
         SessionManager.currentUserId?.let { uid ->
             viewModelScope.launch(Dispatchers.IO) {
                 realm.write {
                     copyToRealm(
                         SavedTrack().apply {
-                            id          = tr.id
+                            /* уникальный primaryKey */
+                            id          = "${tr.id}_${System.currentTimeMillis()}"
+                            trackUserId = tr.user.id
                             title       = tr.title
                             artist      = tr.user.name
                             imageUrl    = tr.artwork?.`150x150`
                             userId      = uid
-                            trackUserId = tr.user.id
                             playedAt    = System.currentTimeMillis()
                         }
                     )

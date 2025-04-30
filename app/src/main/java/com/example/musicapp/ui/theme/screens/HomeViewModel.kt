@@ -20,8 +20,7 @@ import kotlinx.coroutines.withContext
 
 class HomeViewModel : ViewModel() {
 
-    /* ---------- зависимости ---------- */
-
+    /* --------- зависимости --------- */
     private val repo = AudiusRepository(RetrofitInstance.api)
 
     private val realm: Realm by lazy {
@@ -34,75 +33,58 @@ class HomeViewModel : ViewModel() {
         )
     }
 
-    /* ---------- UI-state ---------- */
+    /* --------- UI-state --------- */
+    private val _recentTracks  = MutableStateFlow<List<SavedTrack>>(emptyList())
+    val   recentTracks : StateFlow<List<SavedTrack>> = _recentTracks      // 20 треков
 
-    private val _recentAlbums   = MutableStateFlow<List<AlbumDisplay>>(emptyList())
-    val   recentAlbums:   StateFlow<List<AlbumDisplay>> = _recentAlbums
-
-    private val _dailyAlbums    = MutableStateFlow<List<AlbumDisplay>>(emptyList())
-    val   dailyAlbums:    StateFlow<List<AlbumDisplay>> = _dailyAlbums
+    private val _dailyAlbums   = MutableStateFlow<List<AlbumDisplay>>(emptyList())
+    val   dailyAlbums  : StateFlow<List<AlbumDisplay>> = _dailyAlbums     // миксы артистов
 
     private val _featuredTracks = MutableStateFlow<List<Track>>(emptyList())
-    val   featuredTracks: StateFlow<List<Track>> = _featuredTracks
+    val   featuredTracks : StateFlow<List<Track>> = _featuredTracks       // Today’s Picks
 
-    private val _isLoading      = MutableStateFlow(false)
-    val   isLoading:      StateFlow<Boolean> = _isLoading
+    private val _isLoading = MutableStateFlow(false)
+    val   isLoading : StateFlow<Boolean> = _isLoading
 
-    /* ---------- публичный метод ---------- */
-
+    /* --------- публичный метод --------- */
     fun loadHomeData(userId: String) {
         viewModelScope.launch {
             _isLoading.value = true
-
             try {
-                /* --- работаем на фоне --- */
-                val result = withContext(Dispatchers.IO) {
+                /* ---- IO-работа ---- */
+                val (recent, mixes, featured) = withContext(Dispatchers.IO) {
 
-                    /* === 1. Recently Played =================================================== */
-                    val saved = realm
+                    /* 1. 20 последних прослушиваний */
+                    val recent20 = realm
                         .query<SavedTrack>("userId == $0", userId)
                         .sort("playedAt", Sort.DESCENDING)
+                        .limit(20)
                         .find()
 
-                    val recent = saved
-                        .groupBy { it.trackUserId }            // один альбом на артиста
-                        .values
-                        .map { list ->
-                            val first = list.first()
+                    /* 2. Daily Mix по исполнителям этих 20 треков */
+                    val artistIds = recent20.map { it.trackUserId }.distinct().take(6)
+                    val mixes = artistIds.map { id ->
+                        async {
+                            val tracks = repo.getUserTracks(id).take(60)
+                            val first  = tracks.firstOrNull() ?: return@async null
                             AlbumDisplay(
-                                userId   = first.trackUserId,
-                                title    = first.artist,
-                                coverUrl = first.imageUrl
+                                userId   = id,
+                                title    = "${first.user.name} Mix",
+                                coverUrl = first.artwork?.`150x150`
                             )
                         }
+                    }.mapNotNull { it.await() }
 
-                    /* === 2. Daily Mix (похожие треки) ====================================== */
-                    val mixes = recent.map { album ->
-                        async { repo.searchTracks(album.title) }
-                    }.flatMap { it.await() }
+                    /* 3. Today’s Picks — просто топ-треков по жанру */
+                    val todays = repo.searchTracks("electronic").take(60)
 
-                    val daily = mixes
-                        .groupBy { it.user.id }
-                        .values
-                        .map { list ->
-                            AlbumDisplay(
-                                userId   = list.first().user.id,
-                                title    = list.first().user.name,
-                                coverUrl = list.first().artwork?.`150x150`
-                            )
-                        }
-                        .filter { it.userId !in recent.map { r -> r.userId } }
-
-                    /* === 3. Featured ======================================================== */
-                    val featured = repo.searchTracks("electronic")
-
-                    Triple(recent, daily, featured)
+                    Triple(recent20, mixes, todays)
                 }
 
-                /* --- публикуем результат на UI-потоке --- */
-                _recentAlbums.value   = result.first
-                _dailyAlbums.value    = result.second
-                _featuredTracks.value = result.third
+                /* ---- публикуем ---- */
+                _recentTracks.value  = recent
+                _dailyAlbums.value   = mixes
+                _featuredTracks.value= featured
 
             } catch (e: Exception) {
                 e.printStackTrace()
