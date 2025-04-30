@@ -3,16 +3,20 @@ package com.example.musicapp
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding       // ← ДОБАВИЛИ ЭТО
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModelStoreOwner
-import androidx.navigation.NavDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.musicapp.ui.theme.screens.ModernMiniPlayerBar
@@ -26,20 +30,18 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             MusicAppTheme {
-                /* ---------- VM & nav ---------- */
                 val playerVm: PlayerViewModel =
                     androidx.lifecycle.viewmodel.compose.viewModel(
                         LocalContext.current as ViewModelStoreOwner
                     )
                 val navController = rememberNavController()
-                val backEntry by navController.currentBackStackEntryAsState()
-                val destination = backEntry?.destination?.route ?: ""
+                val backEntry    by navController.currentBackStackEntryAsState()
+                val destination   = backEntry?.destination?.route ?: ""
 
-                /* ---------- UI ---------- */
                 Scaffold(
                     bottomBar = {
                         Column {
-                            /* ── ① МИНИ-ПЛЕЕР ── */
+                            // ── мини-плеер ───────────────────────────────
                             val track    by playerVm.currentTrack.collectAsState()
                             val playing  by playerVm.isPlaying.collectAsState()
                             val progress by playerVm.progress.collectAsState()
@@ -58,7 +60,7 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
 
-                            /* ── ② НАВИГАЦИЯ (только на home / search) ── */
+                            // ── нижняя навигация ────────────────────────
                             if (destination == "home" || destination == "search") {
                                 NavigationBar {
                                     NavItem(
@@ -82,7 +84,7 @@ class MainActivity : ComponentActivity() {
                 ) { inner ->
                     NavGraph(
                         navController = navController,
-                        modifier      = Modifier.padding(inner)
+                        modifier      = Modifier.padding(inner)   // ← теперь padding распознаётся
                     )
                 }
             }
@@ -90,7 +92,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/* ---------- helper ---------- */
+/* ───────────────────────────────────────────────────────────── */
 @Composable
 private fun RowScope.NavItem(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
@@ -99,10 +101,19 @@ private fun RowScope.NavItem(
     currentRoute: String,
     onClick: () -> Unit
 ) {
+    val colors = NavigationBarItemDefaults.colors(
+        selectedIconColor   = MaterialTheme.colorScheme.primary,
+        unselectedIconColor = MaterialTheme.colorScheme.onSurface,
+        selectedTextColor   = MaterialTheme.colorScheme.primary,
+        unselectedTextColor = MaterialTheme.colorScheme.onSurface,
+        indicatorColor      = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f)
+    )
+
     NavigationBarItem(
         selected = currentRoute == route,
         onClick  = onClick,
         icon     = { Icon(icon, contentDescription = label) },
-        label    = { Text(label) }
+        label    = { Text(label) },
+        colors   = colors
     )
 }

@@ -2,9 +2,8 @@ package com.example.musicapp.ui.theme.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Глубокие чёрно‑фиолетовые оттенки
-val BlackBackground    = Color(0xFF12121B)
-val DarkSurface        = Color(0xFF1E1A2B)
-val PurpleAccent       = Color(0xFF7C4DFF)
-val PurpleVariant      = Color(0xFF5E35B1)
-val GrayOnSurface      = Color(0xFFE0E0E0)
+/* --- базовая чёрно-зелёная палитра в стиле Spotify --- */
+val BlackBackground = Color(0xFF3B3B3B)   // фон
+val BlackSurface    = Color(0xFF3B3B3B)   // карты / панели
+val SpotifyGreen    = Color(0xFF64C96A)   // акцент
+val GrayOnSurface   = Color(0xFFF3F3F3)   // пассивный текст/иконки
