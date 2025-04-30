@@ -58,8 +58,10 @@ fun HomeScreen(
         } else {
             AlbumSection("Recently Played", uiRecent, onAlbumClick)
             AlbumSection("Daily Mix",       uiDaily,  onAlbumClick)
-            TrackSection("Today’s Picks",   featured) { track ->
-                playerVm.play(track)
+
+            /* ---- Today’s Picks: передаём queue ---- */
+            TrackSection("Today’s Picks", featured) { track ->
+                playerVm.play(track, featured)      // ← очередь
                 onGoToPlayer()
             }
         }

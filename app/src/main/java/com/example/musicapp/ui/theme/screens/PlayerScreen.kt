@@ -4,10 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,22 +29,26 @@ fun PlayerScreen(onBack: () -> Unit) {
     val playing  by playerVm.isPlaying.collectAsState()
     val progress by playerVm.progress.collectAsState()
 
+    val idx      by playerVm.index.collectAsState()
+    val queue    by playerVm.queue.collectAsState()   // <- список
+    val lastIdx  = remember(queue) { queue.lastIndex } // = size-1
+
     Scaffold(
         topBar = {
             SmallTopAppBar(
                 title = { Text(track?.title ?: "Now Playing") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.SkipPrevious, contentDescription = "Back")
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
         }
-    ) { inner ->
+    ) { innerPadding ->
         Box(
             Modifier
                 .fillMaxSize()
-                .padding(inner),
+                .padding(innerPadding),
             contentAlignment = Alignment.Center
         ) {
             if (track == null) {
@@ -55,7 +56,8 @@ fun PlayerScreen(onBack: () -> Unit) {
             } else {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(32.dp)
+                    verticalArrangement = Arrangement.spacedBy(32.dp),
+                    modifier = Modifier.padding(24.dp)
                 ) {
                     AsyncImage(
                         model = track!!.artwork?.`480x480` ?: track!!.artwork?.`150x150`,
@@ -67,6 +69,7 @@ fun PlayerScreen(onBack: () -> Unit) {
                     Text(track!!.title, style = MaterialTheme.typography.headlineSmall)
                     Text(track!!.user.name, style = MaterialTheme.typography.bodyMedium)
 
+                    /** progress – Float in 0f..1f */
                     Slider(
                         value = progress,
                         onValueChange = playerVm::seekTo,
@@ -74,19 +77,26 @@ fun PlayerScreen(onBack: () -> Unit) {
                     )
 
                     Row(horizontalArrangement = Arrangement.spacedBy(48.dp)) {
-                        IconButton(onClick = { /* prev */ }, enabled = false) {
-                            Icon(Icons.Default.SkipPrevious, null)
-                        }
-                        FilledIconButton(onClick = playerVm::toggle, Modifier.size(72.dp)) {
+                        IconButton(
+                            onClick = playerVm::skipPrevious,
+                            enabled = idx > 0
+                        ) { Icon(Icons.Default.SkipPrevious, null) }
+
+                        FilledIconButton(
+                            onClick = playerVm::toggle,
+                            modifier = Modifier.size(72.dp)
+                        ) {
                             Icon(
                                 if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
                                 null,
                                 Modifier.size(36.dp)
                             )
                         }
-                        IconButton(onClick = { /* next */ }, enabled = false) {
-                            Icon(Icons.Default.SkipNext, null)
-                        }
+
+                        IconButton(
+                            onClick = playerVm::skipNext,
+                            enabled = idx < lastIdx
+                        ) { Icon(Icons.Default.SkipNext, null) }
                     }
                 }
             }

@@ -57,7 +57,7 @@ fun AlbumScreen(
                             )
                         },
                         modifier = Modifier.clickable {
-                            playerVm.play(track)
+                            playerVm.play(track, tracks)       // ← очередь = альбом
                             onTrackClick()
                         }
                     )
