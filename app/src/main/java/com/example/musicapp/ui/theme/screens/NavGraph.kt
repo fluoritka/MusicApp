@@ -13,6 +13,7 @@ fun NavGraph(
     navController: NavHostController,
     modifier: Modifier = Modifier
 ) {
+    // единый экземпляр AuthViewModel для всех экранов
     val authVm: AuthViewModel = viewModel()
 
     NavHost(
@@ -36,7 +37,6 @@ fun NavGraph(
             RegisterScreen(
                 viewModel = authVm,
                 onRegisterSuccess = {
-                    // после регистрации — обратно на login
                     navController.popBackStack("login", inclusive = false)
                 },
                 onBackToLogin = { navController.popBackStack() }
@@ -46,7 +46,8 @@ fun NavGraph(
         composable("home") {
             HomeScreen(
                 onGoToPlayer = { navController.navigate("player") },
-                onAlbumClick = { userId -> navController.navigate("album/$userId") }
+                onAlbumClick = { userId -> navController.navigate("album/$userId") },
+                authViewModel = authVm    // ← передаём сюда
             )
         }
 
@@ -63,7 +64,10 @@ fun NavGraph(
         }
 
         composable("search") {
-            SearchScreen(viewModel = viewModel())
+            SearchScreen(
+                viewModel      = viewModel(),  // SearchViewModel
+                authViewModel  = authVm       // ← и сюда
+            )
         }
     }
 }

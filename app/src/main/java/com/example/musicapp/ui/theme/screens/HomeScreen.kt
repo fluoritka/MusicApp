@@ -13,23 +13,26 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import com.example.musicapp.model.Track
 import com.example.musicapp.model.AlbumDisplay
+import com.example.musicapp.model.Track
+import com.example.musicapp.ui.theme.viewmodel.AuthViewModel
 import com.example.musicapp.viewmodel.HomeViewModel
 
 @Composable
 fun HomeScreen(
     onGoToPlayer: (Track) -> Unit,
-    onAlbumClick: (String) -> Unit
+    onAlbumClick: (String) -> Unit,
+    authViewModel: AuthViewModel = viewModel(),
+    homeViewModel: HomeViewModel = viewModel()
 ) {
-    val vm: HomeViewModel = viewModel()
-    val recent  by vm.recentAlbums.collectAsState()
-    val daily   by vm.dailyAlbums.collectAsState()
-    val featured by vm.featuredTracks.collectAsState()
-    val loading  by vm.isLoading.collectAsState()
+    val userId by authViewModel.currentUserId.collectAsState()
+    val recent   by homeViewModel.recentAlbums.collectAsState()
+    val daily    by homeViewModel.dailyAlbums.collectAsState()
+    val featured by homeViewModel.featuredTracks.collectAsState()
+    val loading  by homeViewModel.isLoading.collectAsState()
 
-    LaunchedEffect(Unit) {
-        vm.loadHomeData()
+    LaunchedEffect(userId) {
+        userId?.let { homeViewModel.loadHomeData(it) }
     }
 
     Column(
@@ -38,11 +41,9 @@ fun HomeScreen(
             .background(MaterialTheme.colorScheme.background)
             .padding(16.dp)
     ) {
-        Text(
-            "Hello, welcome back!",
+        Text("Hello, welcome back!",
             style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onBackground
-        )
+            color = MaterialTheme.colorScheme.onBackground)
         Spacer(Modifier.height(24.dp))
 
         if (loading) {
@@ -52,7 +53,7 @@ fun HomeScreen(
         } else {
             AlbumSection("Recently Played", recent, onAlbumClick)
             AlbumSection("Daily Mix",       daily,  onAlbumClick)
-            TrackSection("Today’s Picks", featured, onGoToPlayer)
+            TrackSection("Today’s Picks",   featured, onGoToPlayer)
         }
     }
 }
@@ -63,10 +64,8 @@ private fun AlbumSection(
     albums: List<AlbumDisplay>,
     onAlbumClick: (String) -> Unit
 ) {
-    Text(title,
-        style = MaterialTheme.typography.titleLarge,
-        color = MaterialTheme.colorScheme.onBackground
-    )
+    Text(title, style = MaterialTheme.typography.titleLarge,
+        color = MaterialTheme.colorScheme.onBackground)
     Spacer(Modifier.height(8.dp))
     LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         items(albums) { album ->
@@ -76,7 +75,7 @@ private fun AlbumSection(
                     .clickable { onAlbumClick(album.userId) }
             ) {
                 Card(
-                    modifier = Modifier
+                    Modifier
                         .size(140.dp)
                         .aspectRatio(1f),
                     shape = RoundedCornerShape(12.dp),
@@ -89,12 +88,10 @@ private fun AlbumSection(
                     )
                 }
                 Spacer(Modifier.height(4.dp))
-                Text(
-                    album.title,
+                Text(album.title,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onBackground,
-                    maxLines = 1
-                )
+                    maxLines = 1)
             }
         }
     }
@@ -107,15 +104,13 @@ private fun TrackSection(
     tracks: List<Track>,
     onItemClick: (Track) -> Unit
 ) {
-    Text(title,
-        style = MaterialTheme.typography.titleLarge,
-        color = MaterialTheme.colorScheme.onBackground
-    )
+    Text(title, style = MaterialTheme.typography.titleLarge,
+        color = MaterialTheme.colorScheme.onBackground)
     Spacer(Modifier.height(8.dp))
     LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         items(tracks) { track ->
             Card(
-                modifier = Modifier
+                Modifier
                     .size(140.dp)
                     .clickable { onItemClick(track) },
                 shape = RoundedCornerShape(12.dp),

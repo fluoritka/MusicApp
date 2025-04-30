@@ -1,4 +1,3 @@
-// app/src/main/java/com/example/musicapp/model/SavedTrack.kt
 package com.example.musicapp.model
 
 import io.realm.kotlin.types.RealmObject
@@ -13,8 +12,11 @@ class SavedTrack : RealmObject {
     var imageUrl: String? = null
 
     @Index
-    var userId: String = ""       // за каким пользователем закреплено прослушивание
+    var userId: String = ""       // id залогиненного пользователя
 
     @Index
     var playedAt: Long = 0L       // время в millis
+
+    @Index
+    var trackUserId: String = ""   // ID артиста/владельца трека (track.user.id)
 }

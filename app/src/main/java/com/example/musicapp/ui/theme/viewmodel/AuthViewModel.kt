@@ -8,15 +8,12 @@ import io.realm.kotlin.Realm
 import io.realm.kotlin.RealmConfiguration
 import io.realm.kotlin.ext.query
 import io.realm.kotlin.types.TypedRealmObject
-import io.realm.kotlin.types.annotations.Index
-import io.realm.kotlin.types.annotations.PrimaryKey
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlin.reflect.KClass
 
 class AuthViewModel : ViewModel() {
-    // form state
     private val _username        = MutableStateFlow("")
     val username: StateFlow<String> = _username
     private val _password        = MutableStateFlow("")
@@ -24,15 +21,14 @@ class AuthViewModel : ViewModel() {
     private val _confirmPassword = MutableStateFlow("")
     val confirmPassword: StateFlow<String> = _confirmPassword
 
-    // login / register result
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
 
-    fun onUsernameChange(v: String)         { _username.value = v }
-    fun onPasswordChange(v: String)         { _password.value = v }
-    fun onConfirmPasswordChange(v: String)  { _confirmPassword.value = v }
+    // текущий залогиненный userId
+    private val _currentUserId = MutableStateFlow<String?>(null)
+    val currentUserId: StateFlow<String?> = _currentUserId
 
-    // Realm instance — используем ту же конфигурацию, что и в MainActivity
+    // Realm instance
     private val realm: Realm by lazy {
         val config = RealmConfiguration.Builder(
             schema = setOf<KClass<out TypedRealmObject>>(RealmUser::class, SavedTrack::class)
@@ -43,6 +39,10 @@ class AuthViewModel : ViewModel() {
             .build()
         Realm.open(config)
     }
+
+    fun onUsernameChange(v: String)         { _username.value = v }
+    fun onPasswordChange(v: String)         { _password.value = v }
+    fun onConfirmPasswordChange(v: String)  { _confirmPassword.value = v }
 
     fun canLogin() = _username.value.isNotBlank() && _password.value.isNotBlank()
     fun canRegister() =
@@ -58,6 +58,7 @@ class AuthViewModel : ViewModel() {
             ).first().find()
             if (user != null) {
                 _error.value = null
+                _currentUserId.value = user.id
                 onSuccess()
             } else {
                 _error.value = "Неверный логин или пароль"
