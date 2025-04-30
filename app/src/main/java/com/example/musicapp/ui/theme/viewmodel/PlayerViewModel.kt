@@ -1,4 +1,3 @@
-// PlayerViewModel.kt
 package com.example.musicapp.ui.theme.viewmodel
 
 import android.app.Application
@@ -13,7 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 class PlayerViewModel(app: Application) : AndroidViewModel(app) {
-    val exo = ExoPlayer.Builder(app).build()
+    private val exo = ExoPlayer.Builder(app).build()
 
     private val _currentTrack = MutableStateFlow<Track?>(null)
     val currentTrack: StateFlow<Track?> = _currentTrack
@@ -26,9 +25,9 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         viewModelScope.launch {
-            while(true) {
+            while (true) {
                 val d = exo.duration
-                _progress.value = if (d>0) exo.currentPosition/d.toFloat() else 0f
+                _progress.value = if (d > 0) exo.currentPosition / d.toFloat() else 0f
                 delay(500)
             }
         }
@@ -45,12 +44,16 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun toggle() {
-        if (_isPlaying.value) exo.pause().also{_isPlaying.value=false}
-        else                  exo.play().also { _isPlaying.value=true }
+        if (_isPlaying.value) exo.pause().also { _isPlaying.value = false }
+        else                  exo.play().also  { _isPlaying.value = true }
     }
 
-    override fun onCleared() {
-        super.onCleared()
-        exo.release()
+    fun seekTo(fraction: Float) {
+        val pos = (exo.duration * fraction).toLong()
+        exo.seekTo(pos)
     }
+
+    fun stop() { exo.stop(); _isPlaying.value = false }
+
+    override fun onCleared() { exo.release(); super.onCleared() }
 }

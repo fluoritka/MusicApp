@@ -4,16 +4,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import com.example.musicapp.ui.theme.viewmodel.AuthViewModel
+import com.example.musicapp.viewmodel.HomeViewModel
+import com.example.musicapp.viewmodel.SearchViewModel
 
 @Composable
 fun NavGraph(
     navController: NavHostController,
     modifier: Modifier = Modifier
 ) {
-    // единый экземпляр AuthViewModel для всех экранов
     val authVm: AuthViewModel = viewModel()
 
     NavHost(
@@ -21,6 +24,7 @@ fun NavGraph(
         startDestination = "login",
         modifier = modifier
     ) {
+        /* ---------- AUTH ---------- */
         composable("login") {
             LoginScreen(
                 viewModel = authVm,
@@ -32,26 +36,39 @@ fun NavGraph(
                 onRegisterNav = { navController.navigate("register") }
             )
         }
-
         composable("register") {
             RegisterScreen(
                 viewModel = authVm,
-                onRegisterSuccess = {
-                    navController.popBackStack("login", inclusive = false)
-                },
-                onBackToLogin = { navController.popBackStack() }
+                onRegisterSuccess = { navController.popBackStack("login", false) },
+                onBackToLogin    = { navController.popBackStack() }
             )
         }
 
+        /* ---------- HOME ---------- */
         composable("home") {
+            val homeVm: HomeViewModel = viewModel()
             HomeScreen(
                 onGoToPlayer = { navController.navigate("player") },
-                onAlbumClick = { userId -> navController.navigate("album/$userId") },
-                authViewModel = authVm    // ← передаём сюда
+                onAlbumClick = { id -> navController.navigate("album/$id") },
+                authViewModel = authVm,
+                homeViewModel = homeVm
             )
         }
 
-        composable("album/{userId}") { back ->
+        /* ---------- SEARCH ---------- */
+        composable("search") {
+            val searchVm: SearchViewModel = viewModel()
+            SearchScreen(
+                viewModel     = searchVm,
+                authViewModel = authVm
+            )
+        }
+
+        /* ---------- ALBUM ---------- */
+        composable(
+            route = "album/{userId}",
+            arguments = listOf(navArgument("userId") { type = NavType.StringType })
+        ) { back ->
             val userId = back.arguments?.getString("userId") ?: ""
             AlbumScreen(
                 userId = userId,
@@ -59,15 +76,9 @@ fun NavGraph(
             )
         }
 
+        /* ---------- PLAYER ---------- */
         composable("player") {
-            PlayerScreen()
-        }
-
-        composable("search") {
-            SearchScreen(
-                viewModel      = viewModel(),  // SearchViewModel
-                authViewModel  = authVm       // ← и сюда
-            )
+            PlayerScreen(onBack = { navController.popBackStack() })
         }
     }
 }

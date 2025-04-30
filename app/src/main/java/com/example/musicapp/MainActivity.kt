@@ -3,90 +3,62 @@ package com.example.musicapp
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding      // ← новый импорт
+import androidx.compose.material3.*
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
-import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.ViewModelStoreOwner
 import androidx.navigation.compose.rememberNavController
+import com.example.musicapp.ui.theme.screens.ModernMiniPlayerBar
 import com.example.musicapp.ui.theme.screens.NavGraph
 import com.example.musicapp.ui.theme.theme.MusicAppTheme
-import io.realm.kotlin.Realm
-import io.realm.kotlin.RealmConfiguration
-import io.realm.kotlin.types.TypedRealmObject
-import kotlin.reflect.KClass
+import com.example.musicapp.ui.theme.viewmodel.PlayerViewModel
 
 class MainActivity : ComponentActivity() {
-    private lateinit var realm: Realm
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // Инициализация Realm с миграцией: удаляем старую БД, если схема изменилась
-        val config = RealmConfiguration.Builder(
-            schema = setOf<KClass<out TypedRealmObject>>(
-                com.example.musicapp.model.RealmUser::class,
-                com.example.musicapp.model.SavedTrack::class
-            )
-        )
-            .name("musicapp.realm")
-            .schemaVersion(1)
-            .deleteRealmIfMigrationNeeded()
-            .build()
-        realm = Realm.open(config)
-
         setContent {
             MusicAppTheme {
+                val playerVm: PlayerViewModel =
+                    androidx.lifecycle.viewmodel.compose.viewModel(
+                        LocalContext.current as ViewModelStoreOwner
+                    )
+
                 val navController = rememberNavController()
-                val navEntry by navController.currentBackStackEntryAsState()
-                val route = navEntry?.destination?.route
 
                 Scaffold(
                     bottomBar = {
-                        if (route == "home" || route == "search") {
-                            NavigationBar {
-                                NavigationBarItem(
-                                    icon = {
-                                        Icon(
-                                            painter = painterResource(R.drawable.icon1_homepage),
-                                            contentDescription = "Home"
-                                        )
-                                    },
-                                    label = { Text("Home") },
-                                    selected = route == "home",
-                                    onClick = { navController.navigate("home") }
-                                )
-                                NavigationBarItem(
-                                    icon = {
-                                        Icon(
-                                            painter = painterResource(R.drawable.icon2_search),
-                                            contentDescription = "Search"
-                                        )
-                                    },
-                                    label = { Text("Search") },
-                                    selected = route == "search",
-                                    onClick = { navController.navigate("search") }
+                        Column {
+                            val current  by playerVm.currentTrack.collectAsState()
+                            val playing  by playerVm.isPlaying.collectAsState()
+                            val progress by playerVm.progress.collectAsState()
+
+                            current?.let { track ->
+                                ModernMiniPlayerBar(
+                                    track             = track,
+                                    isPlaying         = playing,
+                                    progress          = progress,
+                                    onProgressChange  = playerVm::seekTo,
+                                    onSkipPrevious    = {},
+                                    onPlayPauseToggle = playerVm::toggle,
+                                    onSkipNext        = {},
+                                    onPlayerClick     = { navController.navigate("player") },
+                                    modifier          = Modifier.fillMaxWidth()
                                 )
                             }
                         }
                     }
-                ) { innerPadding ->
+                ) { inner ->
                     NavGraph(
                         navController = navController,
-                        modifier = Modifier.padding(innerPadding)
+                        modifier      = Modifier.padding(inner)   // ← padding работает
                     )
                 }
             }
         }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        realm.close()
     }
 }

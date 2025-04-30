@@ -18,10 +18,10 @@ import kotlinx.coroutines.launch
 
 class HomeViewModel : ViewModel() {
 
-    // Репозиторий для запросов к Audius API
+    // Репозиторий Audius API
     private val repo = AudiusRepository(RetrofitInstance.api)
 
-    // Realm для хранения SavedTrack
+    // Realm-БД для SavedTrack
     private val realm: Realm by lazy {
         Realm.open(
             RealmConfiguration.Builder(schema = setOf(SavedTrack::class))
@@ -32,32 +32,33 @@ class HomeViewModel : ViewModel() {
         )
     }
 
+    /* ---------- StateFlows ---------- */
+
     private val _recentAlbums   = MutableStateFlow<List<AlbumDisplay>>(emptyList())
-    val recentAlbums: StateFlow<List<AlbumDisplay>> = _recentAlbums
+    val recentAlbums:   StateFlow<List<AlbumDisplay>> = _recentAlbums
 
     private val _dailyAlbums    = MutableStateFlow<List<AlbumDisplay>>(emptyList())
-    val dailyAlbums: StateFlow<List<AlbumDisplay>> = _dailyAlbums
+    val dailyAlbums:    StateFlow<List<AlbumDisplay>> = _dailyAlbums
 
     private val _featuredTracks = MutableStateFlow<List<Track>>(emptyList())
     val featuredTracks: StateFlow<List<Track>> = _featuredTracks
 
     private val _isLoading      = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading
+    val isLoading:      StateFlow<Boolean> = _isLoading
 
-    /** Загружает все секции: Recently, Daily Mix и Featured */
+    /** Загружает Recently, Daily Mix и Featured */
     fun loadHomeData(userId: String) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // 1) Recently Played из локальной БД
+                /* ---------- 1. Recently Played  ---------- */
                 val savedList = realm
                     .query<SavedTrack>("userId == $0", userId)
                     .sort("playedAt", Sort.DESCENDING)
                     .find()
-                    .toList()
 
-                val recent = savedList
-                    .groupBy { it.trackUserId }
+                val recentTemp = savedList
+                    .groupBy { it.trackUserId }                      // один альбом на артиста
                     .map { (_, list) ->
                         val first = list.first()
                         AlbumDisplay(
@@ -66,31 +67,37 @@ class HomeViewModel : ViewModel() {
                             coverUrl = first.imageUrl
                         )
                     }
-                _recentAlbums.value = recent
 
-                // 2) Daily Mix: для каждого артиста из recent делаем поиск похожих треков
-                val deferredLists = recent.map { album ->
-                    async { repo.searchTracks(album.title) }
+                /* ---------- 2. Daily Mix  ---------- */
+                val deferredLists = recentTemp.map { album ->
+                    async { repo.searchTracks(album.title) }         // похожие треки
                 }
                 val allMixTracks = deferredLists.flatMap { it.await() }
 
-                // Группируем по артисту и исключаем уже в recent
-                val daily = allMixTracks
-                    .groupBy { it.user.id to it.user.name }
-                    .map { (key, list) ->
-                        val (aid, name) = key
+                val dailyTemp = allMixTracks
+                    .groupBy { it.user.id }                          // по артисту
+                    .map { (aid, list) ->
                         AlbumDisplay(
                             userId   = aid,
-                            title    = name,
-                            coverUrl = list.firstOrNull()?.artwork?.`150x150`
+                            title    = list.first().user.name,
+                            coverUrl = list.first().artwork?.`150x150`
                         )
                     }
-                    .filter { it.userId !in recent.map { r -> r.userId } }
+                    .filter { it.userId !in recentTemp.map { r -> r.userId } }  // исключаем повторы
 
-                _dailyAlbums.value = daily
+                /* ---------- 3. Убираем повторы из recent ---------- */
+                val recentUnique = recentTemp.filter { album ->
+                    album.userId !in dailyTemp.map { d -> d.userId }
+                }
 
-                // 3) Featured — просто пример
-                _featuredTracks.value = repo.searchTracks("electronic")
+                /* ---------- 4. Featured ---------- */
+                val featured = repo.searchTracks("electronic")
+
+                /* ---------- 5. Publish ---------- */
+                _recentAlbums.value   = recentUnique
+                _dailyAlbums.value    = dailyTemp
+                _featuredTracks.value = featured
+
             } catch (e: Exception) {
                 e.printStackTrace()
             } finally {
