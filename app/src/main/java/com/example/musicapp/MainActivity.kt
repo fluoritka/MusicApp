@@ -6,9 +6,10 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding       // ← ДОБАВИЛИ ЭТО
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -41,7 +42,7 @@ class MainActivity : ComponentActivity() {
                 Scaffold(
                     bottomBar = {
                         Column {
-                            // ── мини-плеер ───────────────────────────────
+                            /* --- mini-player --- */
                             val track    by playerVm.currentTrack.collectAsState()
                             val playing  by playerVm.isPlaying.collectAsState()
                             val progress by playerVm.progress.collectAsState()
@@ -60,22 +61,29 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
 
-                            // ── нижняя навигация ────────────────────────
-                            if (destination == "home" || destination == "search") {
+                            /* --- bottom nav --- */
+                            if (destination in listOf("home", "search", "library")) {
                                 NavigationBar {
                                     NavItem(
-                                        icon   = Icons.Default.Home,
+                                        icon   = Icons.Filled.Home,
                                         label  = "Home",
                                         route  = "home",
                                         currentRoute = destination,
                                         onClick = { navController.navigate("home") }
                                     )
                                     NavItem(
-                                        icon   = Icons.Default.Search,
+                                        icon   = Icons.Filled.Search,
                                         label  = "Search",
                                         route  = "search",
                                         currentRoute = destination,
                                         onClick = { navController.navigate("search") }
+                                    )
+                                    NavItem(
+                                        icon   = Icons.Filled.LibraryMusic,
+                                        label  = "Library",
+                                        route  = "library",
+                                        currentRoute = destination,
+                                        onClick = { navController.navigate("library") }
                                     )
                                 }
                             }
@@ -84,7 +92,7 @@ class MainActivity : ComponentActivity() {
                 ) { inner ->
                     NavGraph(
                         navController = navController,
-                        modifier      = Modifier.padding(inner)   // ← теперь padding распознаётся
+                        modifier      = Modifier.padding(inner)
                     )
                 }
             }
@@ -92,7 +100,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/* ───────────────────────────────────────────────────────────── */
+/* ----------------------------------------------------------- */
 @Composable
 private fun RowScope.NavItem(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
