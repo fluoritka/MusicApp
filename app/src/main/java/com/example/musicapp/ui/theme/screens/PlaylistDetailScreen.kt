@@ -1,4 +1,3 @@
-// app/src/main/java/com/example/musicapp/ui/theme/screens/PlaylistDetailScreen.kt
 package com.example.musicapp.ui.theme.screens
 
 import androidx.compose.foundation.clickable
@@ -25,6 +24,7 @@ import coil.compose.AsyncImage
 import com.example.musicapp.model.Artwork
 import com.example.musicapp.model.Track
 import com.example.musicapp.model.User
+import com.example.musicapp.ui.theme.screens.ModernMiniPlayerBar
 import com.example.musicapp.ui.theme.viewmodel.PlayerViewModel
 import com.example.musicapp.viewmodel.PlaylistViewModel
 
@@ -33,12 +33,17 @@ import com.example.musicapp.viewmodel.PlaylistViewModel
 fun PlaylistDetailScreen(
     playlistId: String,
     onBack: () -> Unit,
-    onPlayerClick: () -> Unit,               // вернули параметр, который ожидает NavGraph
+    onPlayerClick: () -> Unit,
     playlistVm: PlaylistViewModel = viewModel(),
     playerVm:   PlayerViewModel   = viewModel()
 ) {
     val playlists by playlistVm.playlists.collectAsState()
     val pl        = playlists.firstOrNull { it.id == playlistId }
+
+    // Текущее состояние плеера
+    val currentTrack by playerVm.currentTrack.collectAsState()
+    val isPlaying    by playerVm.isPlaying.collectAsState()
+    val progress     by playerVm.progress.collectAsState()
 
     Scaffold(
         topBar = {
@@ -50,8 +55,21 @@ fun PlaylistDetailScreen(
                     }
                 }
             )
+        },
+        bottomBar = {
+            currentTrack?.let { track ->
+                ModernMiniPlayerBar(
+                    track = track,
+                    isPlaying = isPlaying,
+                    progress = progress,
+                    onProgressChange = playerVm::seekTo,
+                    onSkipPrevious = playerVm::skipPrevious,
+                    onPlayPauseToggle = playerVm::toggle,
+                    onSkipNext = playerVm::skipNext,
+                    onPlayerClick = onPlayerClick
+                )
+            }
         }
-        // мы не добавляем здесь bottomBar — глобальный мини-плеер из NavGraph остается единственным
     ) { innerPadding ->
         Box(
             modifier = Modifier
@@ -69,7 +87,6 @@ fun PlaylistDetailScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(pl.tracks) { saved ->
-                        // Преобразуем SavedTrack → Track
                         val art = Artwork(
                             `150x150`   = saved.imageUrl.orEmpty(),
                             `480x480`   = saved.imageUrl.orEmpty(),
@@ -99,7 +116,6 @@ fun PlaylistDetailScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    // собираем очередь всех треков этого плейлиста
                                     val queue = pl.tracks.map { s ->
                                         Track(
                                             id      = s.id.orEmpty(),

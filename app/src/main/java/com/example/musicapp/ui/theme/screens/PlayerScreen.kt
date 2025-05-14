@@ -3,6 +3,8 @@ package com.example.musicapp.ui.theme.screens
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -32,9 +34,8 @@ fun PlayerScreen(onBack: () -> Unit) {
     val playing  by playerVm.isPlaying.collectAsState()
     val progress by playerVm.progress.collectAsState()
 
-    // for default add-to-playlist, take first playlist
     val playlists by playlistVm.playlists.collectAsState()
-    val defaultPlId = playlists.firstOrNull()?.id
+    var showPlaylistDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -72,7 +73,6 @@ fun PlayerScreen(onBack: () -> Unit) {
                     Text(track!!.title, style = MaterialTheme.typography.headlineSmall)
                     Text(track!!.user.name, style = MaterialTheme.typography.bodyMedium)
 
-                    /** progress – Float in 0f..1f */
                     Slider(
                         value = progress,
                         onValueChange = playerVm::seekTo,
@@ -83,12 +83,10 @@ fun PlayerScreen(onBack: () -> Unit) {
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Add to playlist button
+                        // Кнопка выбора плейлиста
                         IconButton(
-                            onClick = {
-                                defaultPlId?.let { playlistVm.addTrackToPlaylist(track!!, it) }
-                            },
-                            enabled = defaultPlId != null
+                            onClick = { if (track != null) showPlaylistDialog = true },
+                            enabled = track != null && playlists.isNotEmpty()
                         ) {
                             Icon(
                                 imageVector = Icons.Default.PlaylistAdd,
@@ -96,12 +94,10 @@ fun PlayerScreen(onBack: () -> Unit) {
                             )
                         }
 
-                        // Favorite toggle button
+                        // Тоггл избранного
                         val favorites by playlistVm.favorites.collectAsState()
                         val isFav = track?.id?.let { id -> favorites.any { it.trackId == id } } == true
-                        IconButton(
-                            onClick = { playlistVm.toggleFavorite(track!!) }
-                        ) {
+                        IconButton(onClick = { track?.let { playlistVm.toggleFavorite(it) } }) {
                             Icon(
                                 imageVector = if (isFav) Icons.Filled.Favorite else Icons.Default.FavoriteBorder,
                                 contentDescription = "Toggle favorite"
@@ -115,10 +111,7 @@ fun PlayerScreen(onBack: () -> Unit) {
                             Icon(Icons.Default.SkipPrevious, contentDescription = "Previous")
                         }
 
-                        FilledIconButton(
-                            onClick = playerVm::toggle,
-                            modifier = Modifier.size(72.dp)
-                        ) {
+                        FilledIconButton(onClick = playerVm::toggle, modifier = Modifier.size(72.dp)) {
                             Icon(
                                 if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
                                 null,
@@ -136,5 +129,38 @@ fun PlayerScreen(onBack: () -> Unit) {
                 }
             }
         }
+    }
+
+    // Диалог выбора плейлиста
+    if (showPlaylistDialog) {
+        AlertDialog(
+            onDismissRequest = { showPlaylistDialog = false },
+            title = { Text("Выберите плейлист") },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    playlists.forEach { pl ->
+                        TextButton(
+                            onClick = {
+                                track?.let { playlistVm.addTrackToPlaylist(it, pl.id) }
+                                showPlaylistDialog = false
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(pl.title)
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showPlaylistDialog = false }) {
+                    Text("Отмена")
+                }
+            }
+        )
     }
 }
