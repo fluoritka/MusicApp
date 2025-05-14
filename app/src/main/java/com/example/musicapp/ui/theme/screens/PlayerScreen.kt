@@ -15,7 +15,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.example.musicapp.model.Track
 import com.example.musicapp.ui.theme.viewmodel.PlayerViewModel
+import com.example.musicapp.viewmodel.PlaylistViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -24,14 +26,15 @@ fun PlayerScreen(onBack: () -> Unit) {
 
     val playerVm: PlayerViewModel =
         viewModel(LocalContext.current as ViewModelStoreOwner)
+    val playlistVm: PlaylistViewModel = viewModel()
 
     val track    by playerVm.currentTrack.collectAsState()
     val playing  by playerVm.isPlaying.collectAsState()
     val progress by playerVm.progress.collectAsState()
 
-    val idx      by playerVm.index.collectAsState()
-    val queue    by playerVm.queue.collectAsState()   // <- список
-    val lastIdx  = remember(queue) { queue.lastIndex } // = size-1
+    // for default add-to-playlist, take first playlist
+    val playlists by playlistVm.playlists.collectAsState()
+    val defaultPlId = playlists.firstOrNull()?.id
 
     Scaffold(
         topBar = {
@@ -76,11 +79,41 @@ fun PlayerScreen(onBack: () -> Unit) {
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(48.dp)) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Add to playlist button
+                        IconButton(
+                            onClick = {
+                                defaultPlId?.let { playlistVm.addTrackToPlaylist(track!!, it) }
+                            },
+                            enabled = defaultPlId != null
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PlaylistAdd,
+                                contentDescription = "Add to playlist"
+                            )
+                        }
+
+                        // Favorite toggle button
+                        val favorites by playlistVm.favorites.collectAsState()
+                        val isFav = track?.id?.let { id -> favorites.any { it.trackId == id } } == true
+                        IconButton(
+                            onClick = { playlistVm.toggleFavorite(track!!) }
+                        ) {
+                            Icon(
+                                imageVector = if (isFav) Icons.Filled.Favorite else Icons.Default.FavoriteBorder,
+                                contentDescription = "Toggle favorite"
+                            )
+                        }
+
                         IconButton(
                             onClick = playerVm::skipPrevious,
-                            enabled = idx > 0
-                        ) { Icon(Icons.Default.SkipPrevious, null) }
+                            enabled = playerVm.index.collectAsState().value > 0
+                        ) {
+                            Icon(Icons.Default.SkipPrevious, contentDescription = "Previous")
+                        }
 
                         FilledIconButton(
                             onClick = playerVm::toggle,
@@ -95,8 +128,10 @@ fun PlayerScreen(onBack: () -> Unit) {
 
                         IconButton(
                             onClick = playerVm::skipNext,
-                            enabled = idx < lastIdx
-                        ) { Icon(Icons.Default.SkipNext, null) }
+                            enabled = playerVm.index.collectAsState().value < playerVm.queue.collectAsState().value.lastIndex
+                        ) {
+                            Icon(Icons.Default.SkipNext, contentDescription = "Next")
+                        }
                     }
                 }
             }

@@ -1,3 +1,4 @@
+// app/src/main/java/com/example/musicapp/viewmodel/HomeViewModel.kt
 package com.example.musicapp.viewmodel
 
 import androidx.lifecycle.ViewModel
@@ -20,7 +21,6 @@ import kotlinx.coroutines.withContext
 
 class HomeViewModel : ViewModel() {
 
-    /* --------- зависимости --------- */
     private val repo = AudiusRepository(RetrofitInstance.api)
 
     private val realm: Realm by lazy {
@@ -33,58 +33,71 @@ class HomeViewModel : ViewModel() {
         )
     }
 
-    /* --------- UI-state --------- */
-    private val _recentTracks  = MutableStateFlow<List<SavedTrack>>(emptyList())
-    val   recentTracks : StateFlow<List<SavedTrack>> = _recentTracks      // 20 треков
+    private val _recentTracks    = MutableStateFlow<List<SavedTrack>>(emptyList())
+    val   recentTracks  : StateFlow<List<SavedTrack>>   = _recentTracks
 
-    private val _dailyAlbums   = MutableStateFlow<List<AlbumDisplay>>(emptyList())
-    val   dailyAlbums  : StateFlow<List<AlbumDisplay>> = _dailyAlbums     // миксы артистов
+    private val _dailyAlbums     = MutableStateFlow<List<AlbumDisplay>>(emptyList())
+    val   dailyAlbums   : StateFlow<List<AlbumDisplay>> = _dailyAlbums
 
-    private val _featuredTracks = MutableStateFlow<List<Track>>(emptyList())
-    val   featuredTracks : StateFlow<List<Track>> = _featuredTracks       // Today’s Picks
+    private val _featuredTracks  = MutableStateFlow<List<Track>>(emptyList())
+    val   featuredTracks: StateFlow<List<Track>>        = _featuredTracks
 
-    private val _isLoading = MutableStateFlow(false)
-    val   isLoading : StateFlow<Boolean> = _isLoading
+    // Новая секция Recommendations
+    private val _recommendations     = MutableStateFlow<List<AlbumDisplay>>(emptyList())
+    val   recommendations  : StateFlow<List<AlbumDisplay>> = _recommendations
 
-    /* --------- публичный метод --------- */
+    private val _isLoading      = MutableStateFlow(false)
+    val   isLoading      : StateFlow<Boolean> = _isLoading
+
     fun loadHomeData(userId: String) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                /* ---- IO-работа ---- */
                 val (recent, mixes, featured) = withContext(Dispatchers.IO) {
-
-                    /* 1. 20 последних прослушиваний */
+                    // 1) последние 20
                     val recent20 = realm
                         .query<SavedTrack>("userId == $0", userId)
                         .sort("playedAt", Sort.DESCENDING)
                         .limit(20)
                         .find()
 
-                    /* 2. Daily Mix по исполнителям этих 20 треков */
+                    // 2) Daily Mix по артистам
                     val artistIds = recent20.map { it.trackUserId }.distinct().take(6)
                     val mixes = artistIds.map { id ->
                         async {
                             val tracks = repo.getUserTracks(id).take(60)
-                            val first  = tracks.firstOrNull() ?: return@async null
-                            AlbumDisplay(
-                                userId   = id,
-                                title    = "${first.user.name} Mix",
-                                coverUrl = first.artwork?.`150x150`
-                            )
+                            tracks.firstOrNull()?.let { first ->
+                                AlbumDisplay(
+                                    userId   = id,
+                                    title    = "${first.user.name} Mix",
+                                    coverUrl = first.artwork?.`150x150`
+                                )
+                            }
                         }
                     }.mapNotNull { it.await() }
 
-                    /* 3. Today’s Picks — просто топ-треков по жанру */
+                    // 3) Today’s Picks — топ-треки жанра
                     val todays = repo.searchTracks("electronic").take(60)
 
                     Triple(recent20, mixes, todays)
                 }
 
-                /* ---- публикуем ---- */
-                _recentTracks.value  = recent
-                _dailyAlbums.value   = mixes
-                _featuredTracks.value= featured
+                // 4) Recommendations — возьмём первые 20 featuredTracks
+                val recs = featured
+                    .map { tr ->
+                        AlbumDisplay(
+                            userId   = tr.user.id,
+                            title    = tr.title,
+                            coverUrl = tr.artwork?.`150x150`
+                        )
+                    }
+                    .take(20)
+
+                // публикуем все секции
+                _recentTracks.value    = recent
+                _dailyAlbums.value     = mixes
+                _featuredTracks.value  = featured
+                _recommendations.value = recs
 
             } catch (e: Exception) {
                 e.printStackTrace()

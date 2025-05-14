@@ -1,3 +1,4 @@
+// app/src/main/java/com/example/musicapp/model/SavedTrack.kt
 package com.example.musicapp.model
 
 import io.realm.kotlin.types.RealmObject
@@ -7,13 +8,15 @@ class SavedTrack : RealmObject {
     @PrimaryKey
     var id: String = ""
     var trackUserId: String = ""
-    var title: String? = ""
-    var artist: String? = ""
+    var title: String? = null
+    var artist: String? = null
     var imageUrl: String? = null
     var userId: String = ""
     var playedAt: Long = 0L
 
-    // ────────────────────────────────────────────────────────────────
-    // Новое поле для корректного воспроизведения из плейлистов:
+    // НОВОЕ поле для URL потока
     var streamUrl: String? = null
+
+    // НОВОЕ поле связи с плейлистом
+    var playlistId: String? = null
 }

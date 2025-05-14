@@ -10,6 +10,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
@@ -21,17 +23,30 @@ import com.example.musicapp.viewmodel.HomeViewModel
 fun HomeScreen(
     onPlayTrack : (Track)  -> Unit,
     onAlbumClick: (String) -> Unit,
-    authVm:  AuthViewModel  = viewModel(),
-    homeVm:  HomeViewModel  = viewModel()
+    authVm:      AuthViewModel = viewModel(),
+    homeVm:      HomeViewModel = viewModel()
 ) {
-    /* -------- state -------- */
-    val userId   by authVm.currentUserId.collectAsState()
-    val recent   by homeVm.recentTracks.collectAsState()
-    val mixes    by homeVm.dailyAlbums.collectAsState()
-    val featured by homeVm.featuredTracks.collectAsState()
-    val loading  by homeVm.isLoading.collectAsState()
+    val userId          by authVm.currentUserId.collectAsState()
+    val recent          by homeVm.recentTracks.collectAsState()
+    val mixes           by homeVm.dailyAlbums.collectAsState()
+    val recommendations by homeVm.recommendations.collectAsState()
+    val loading         by homeVm.isLoading.collectAsState()
 
-    LaunchedEffect(userId) { userId?.let(homeVm::loadHomeData) }
+    LaunchedEffect(userId) {
+        userId?.let { homeVm.loadHomeData(it) }
+    }
+
+    if (loading) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+        return
+    }
 
     Column(
         Modifier
@@ -40,79 +55,72 @@ fun HomeScreen(
             .padding(16.dp)
     ) {
         Text(
-            "Hello, welcome back!",
+            text  = "Hello, welcome back!",
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onBackground
         )
         Spacer(Modifier.height(24.dp))
 
-        if (loading) {
-            Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
-            return
-        }
-
-        /* ---------- RECENTLY PLAYED ---------- */
-        Text("Recently Played", style = MaterialTheme.typography.titleLarge)
+        // Recently Played
+        Text(text = "Recently Played", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(8.dp))
-        SavedTrackRow(
-            tracks = recent,
-            onTrackClick = { st ->
-                /* конвертация SavedTrack → Track под вашу модель */
-                val art = Artwork(
-                    `150x150`   = st.imageUrl,
-                    `480x480`   = st.imageUrl,
-                    `1000x1000` = st.imageUrl
-                )
-                val usr = User(st.trackUserId, st.artist ?: "")
-                val t   = Track(id = st.id, title = st.title ?: "", user = usr, artwork = art)
-                onPlayTrack(t)
-            }
-        )
-        Spacer(Modifier.height(24.dp))
-
-        /* ---------- DAILY MIX ---------- */
-        AlbumSection("Daily Mix", mixes, onAlbumClick)
-        Spacer(Modifier.height(24.dp))
-
-        /* ---------- TODAY’S PICKS ---------- */
-        TrackSection("Today’s Picks", featured, onPlayTrack)
-    }
-}
-
-/* ==================================================================== */
-/* ---------------------------- helpers -------------------------------- */
-
-@Composable
-private fun SavedTrackRow(
-    tracks: List<SavedTrack>,
-    onTrackClick: (SavedTrack) -> Unit
-) {
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        items(tracks) { st ->
-            Column(
-                Modifier
-                    .width(140.dp)
-                    .clickable { onTrackClick(st) }
-            ) {
-                Card(
-                    Modifier.size(140.dp),
-                    shape  = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface)
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            items(recent) { st ->
+                Column(
+                    Modifier
+                        .width(140.dp)
+                        .clickable {
+                            val art = Artwork(
+                                `150x150`   = st.imageUrl,
+                                `480x480`   = st.imageUrl,
+                                `1000x1000` = st.imageUrl
+                            )
+                            val usr = User(st.trackUserId, st.artist ?: "")
+                            val t   = Track(id = st.id, title = st.title ?: "", user = usr, artwork = art)
+                            onPlayTrack(t)
+                        }
                 ) {
-                    AsyncImage(
-                        model = st.imageUrl,
-                        contentDescription = st.title,
-                        modifier = Modifier.fillMaxSize()
+                    Card(
+                        modifier = Modifier.size(140.dp),
+                        shape    = RoundedCornerShape(12.dp),
+                        colors   = CardDefaults.cardColors(MaterialTheme.colorScheme.surface)
+                    ) {
+                        AsyncImage(
+                            model            = st.imageUrl,
+                            contentDescription = st.title,
+                            contentScale     = ContentScale.Crop,
+                            modifier         = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(12.dp))
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text     = st.title ?: "",
+                        style    = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1
                     )
                 }
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    st.title ?: "",
-                    style    = MaterialTheme.typography.bodyMedium,
-                    maxLines = 1
-                )
             }
         }
+
+        Spacer(Modifier.height(24.dp))
+
+        // Daily Mix
+        AlbumSection(
+            title        = "Daily Mix",
+            albums       = mixes,
+            onAlbumClick = onAlbumClick
+        )
+
+        Spacer(Modifier.height(24.dp))
+
+        // Today’s Picks (recommendations)
+        AlbumSection(
+            title        = "Today’s Picks",
+            albums       = recommendations,
+            onAlbumClick = onAlbumClick
+        )
     }
 }
 
@@ -122,56 +130,34 @@ private fun AlbumSection(
     albums: List<AlbumDisplay>,
     onAlbumClick: (String) -> Unit
 ) {
-    Text(title, style = MaterialTheme.typography.titleLarge)
+    Text(text = title, style = MaterialTheme.typography.titleLarge)
     Spacer(Modifier.height(8.dp))
     LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        items(albums) { album ->
+        items(albums) { alb ->
             Column(
                 Modifier
                     .width(140.dp)
-                    .clickable { onAlbumClick(album.userId) }
+                    .clickable { onAlbumClick(alb.userId) }
             ) {
                 Card(
-                    Modifier.size(140.dp),
-                    shape  = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface)
+                    modifier = Modifier.size(140.dp),
+                    shape    = RoundedCornerShape(12.dp),
+                    colors   = CardDefaults.cardColors(MaterialTheme.colorScheme.surface)
                 ) {
                     AsyncImage(
-                        model = album.coverUrl,
-                        contentDescription = album.title,
-                        modifier = Modifier.fillMaxSize()
+                        model            = alb.coverUrl,
+                        contentDescription = alb.title,
+                        contentScale     = ContentScale.Crop,
+                        modifier         = Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(12.dp))
                     )
                 }
                 Spacer(Modifier.height(4.dp))
-                Text(album.title,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 1)
-            }
-        }
-    }
-}
-
-@Composable
-private fun TrackSection(
-    title: String,
-    tracks: List<Track>,
-    onTrackClick: (Track) -> Unit
-) {
-    Text(title, style = MaterialTheme.typography.titleLarge)
-    Spacer(Modifier.height(8.dp))
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        items(tracks) { track ->
-            Card(
-                Modifier
-                    .size(140.dp)
-                    .clickable { onTrackClick(track) },
-                shape  = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface)
-            ) {
-                AsyncImage(
-                    model = track.artwork?.`150x150`,
-                    contentDescription = track.title,
-                    modifier = Modifier.fillMaxSize()
+                Text(
+                    text     = alb.title,
+                    style    = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1
                 )
             }
         }

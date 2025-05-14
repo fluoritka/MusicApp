@@ -1,4 +1,4 @@
-// File: app/src/main/java/com/example/musicapp/viewmodel/PlaylistViewModel.kt
+// app/src/main/java/com/example/musicapp/viewmodel/PlaylistViewModel.kt
 package com.example.musicapp.viewmodel
 
 import androidx.lifecycle.ViewModel
@@ -63,7 +63,6 @@ class PlaylistViewModel : ViewModel() {
         }
     }
 
-    /** Добавляем трек в плейлист, сохраняя именно тот же id, что в Track */
     fun addTrackToPlaylist(track: Track, playlistId: String) {
         val uid = SessionManager.currentUserId ?: return
         viewModelScope.launch(Dispatchers.IO) {
@@ -73,16 +72,16 @@ class PlaylistViewModel : ViewModel() {
                     playlistId, uid
                 ).first().find() ?: return@write
 
-                // избегаем дубликатов по track.id
                 if (pl.tracks.any { it.id == track.id }) return@write
 
                 val snap = copyToRealm(
                     SavedTrack().apply {
-                        id          = track.id               // <<-- ВАЖНО: именно track.id, без суффиксов
+                        id          = track.id
                         trackUserId = track.user.id
                         title       = track.title
                         artist      = track.user.name
                         imageUrl    = track.artwork?.`150x150`
+                        streamUrl   = track.streamUrl
                         userId      = uid
                         playedAt    = System.currentTimeMillis()
                     }
@@ -93,7 +92,30 @@ class PlaylistViewModel : ViewModel() {
         }
     }
 
-    fun toggleFavorite(track: Track) { /* без изменений */ }
+    fun toggleFavorite(track: Track) {
+        val uid = SessionManager.currentUserId ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            realm.write {
+                val favId = "${track.id}_$uid"
+                val existing = query<FavoriteTrack>(
+                    "id == $0", favId
+                ).first().find()
+                if (existing != null) delete(existing)
+                else copyToRealm(
+                    FavoriteTrack().apply {
+                        id       = favId
+                        trackId  = track.id
+                        userId   = uid
+                        title    = track.title
+                        artist   = track.user.name
+                        imageUrl = track.artwork?.`150x150`
+                        addedAt  = System.currentTimeMillis()
+                    }
+                )
+            }
+            refresh()
+        }
+    }
 
     private fun refresh() {
         val uid = SessionManager.currentUserId ?: return

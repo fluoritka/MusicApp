@@ -1,3 +1,4 @@
+// app/src/main/java/com/example/musicapp/ui/theme/viewmodel/PlayerViewModel.kt
 package com.example.musicapp.ui.theme.viewmodel
 
 import android.app.Application
@@ -18,10 +19,8 @@ import kotlinx.coroutines.launch
 
 class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
-    /* ---------- ExoPlayer ---------- */
     private val exo = ExoPlayer.Builder(app).build()
 
-    /* ---------- Realm ---------- */
     private val realm: Realm by lazy {
         Realm.open(
             RealmConfiguration.Builder(schema = setOf(SavedTrack::class))
@@ -32,7 +31,6 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         )
     }
 
-    /* ---------- UI-state ---------- */
     private val _queue   = MutableStateFlow<List<Track>>(emptyList())
     val   queue: StateFlow<List<Track>> = _queue
 
@@ -49,7 +47,6 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     val   progress:  StateFlow<Float> = _progress
 
     init {
-        /* обновляем progress каждые 0.5 с */
         viewModelScope.launch {
             while (true) {
                 val dur = exo.duration.takeIf { it > 0 } ?: 1L
@@ -59,12 +56,10 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /* ---------- public API ---------- */
-
+    /** Обычное воспроизведение List<Track> из сети */
     fun play(track: Track, queue: List<Track> = _queue.value) {
         val newIdx = queue.indexOfFirst { it.id == track.id }
         if (newIdx == -1) return
-
         if (queue !== _queue.value) _queue.value = queue
         if (newIdx != _index.value) {
             _index.value = newIdx
@@ -72,41 +67,48 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         } else resume()
     }
 
+    /** Воспроизведение сохранённых треков из БД */
+    fun playSaved(saved: SavedTrack, savedQueue: List<SavedTrack> = listOf(saved)) {
+        // преобразуем SavedTrack в модель Track для единого API
+        val list = savedQueue.map {
+            Track(
+                id = it.id,
+                title = it.title.orEmpty(),
+                user = com.example.musicapp.model.User(it.trackUserId, it.artist.orEmpty()),
+                artwork = com.example.musicapp.model.Artwork(it.imageUrl, it.imageUrl, it.imageUrl)
+            )
+        }
+        play(
+            list.first { it.id == saved.id },
+            list
+        )
+    }
+
     fun toggle()        = if (_isPlaying.value) pause() else resume()
     fun seekTo(f: Float)= exo.seekTo((exo.duration * f).toLong())
-
-    fun skipNext() {
-        val next = _index.value + 1
-        if (next < _queue.value.size) play(_queue.value[next])
-    }
-
-    fun skipPrevious() {
-        val prev = _index.value - 1
-        if (prev >= 0) play(_queue.value[prev])
-    }
-
-    /* ---------- helpers ---------- */
+    fun skipNext()      = if (_index.value + 1 < _queue.value.size) play(_queue.value[_index.value + 1])
+    else Unit
+    fun skipPrevious()  = if (_index.value - 1 >= 0) play(_queue.value[_index.value - 1])
+    else Unit
 
     private fun start(tr: Track) {
         exo.stop(); exo.clearMediaItems()
         exo.setMediaItem(MediaItem.fromUri(tr.streamUrl))
         exo.prepare(); exo.play()
-
         _current.value   = tr
         _isPlaying.value = true
 
-        /* --- сохраняем историю прослушиваний (IO-поток) --- */
         SessionManager.currentUserId?.let { uid ->
             viewModelScope.launch(Dispatchers.IO) {
                 realm.write {
                     copyToRealm(
                         SavedTrack().apply {
-                            /* уникальный primaryKey */
                             id          = "${tr.id}_${System.currentTimeMillis()}"
                             trackUserId = tr.user.id
                             title       = tr.title
                             artist      = tr.user.name
                             imageUrl    = tr.artwork?.`150x150`
+                            streamUrl   = tr.streamUrl
                             userId      = uid
                             playedAt    = System.currentTimeMillis()
                         }

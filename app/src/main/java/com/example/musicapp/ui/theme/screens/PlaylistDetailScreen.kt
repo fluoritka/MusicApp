@@ -1,3 +1,4 @@
+// app/src/main/java/com/example/musicapp/ui/theme/screens/PlaylistDetailScreen.kt
 package com.example.musicapp.ui.theme.screens
 
 import androidx.compose.foundation.clickable
@@ -26,24 +27,18 @@ import com.example.musicapp.model.Track
 import com.example.musicapp.model.User
 import com.example.musicapp.ui.theme.viewmodel.PlayerViewModel
 import com.example.musicapp.viewmodel.PlaylistViewModel
-import com.example.musicapp.ui.theme.screens.ModernMiniPlayerBar
-import androidx.compose.foundation.layout.Arrangement
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlaylistDetailScreen(
     playlistId: String,
     onBack: () -> Unit,
-    onPlayerClick: () -> Unit,
+    onPlayerClick: () -> Unit,               // вернули параметр, который ожидает NavGraph
     playlistVm: PlaylistViewModel = viewModel(),
     playerVm:   PlayerViewModel   = viewModel()
 ) {
     val playlists by playlistVm.playlists.collectAsState()
     val pl        = playlists.firstOrNull { it.id == playlistId }
-
-    val current   by playerVm.currentTrack.collectAsState()
-    val isPlaying by playerVm.isPlaying.collectAsState()
-    val progress  by playerVm.progress.collectAsState()
 
     Scaffold(
         topBar = {
@@ -55,31 +50,17 @@ fun PlaylistDetailScreen(
                     }
                 }
             )
-        },
-        bottomBar = {
-            current?.let { track ->
-                ModernMiniPlayerBar(
-                    track             = track,
-                    isPlaying         = isPlaying,
-                    progress          = progress,
-                    onProgressChange  = playerVm::seekTo,
-                    onSkipPrevious    = playerVm::skipPrevious,
-                    onPlayPauseToggle = playerVm::toggle,
-                    onSkipNext        = playerVm::skipNext,
-                    onPlayerClick     = onPlayerClick,
-                    modifier          = Modifier.fillMaxWidth()
-                )
-            }
         }
+        // мы не добавляем здесь bottomBar — глобальный мини-плеер из NavGraph остается единственным
     ) { innerPadding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.TopCenter
         ) {
             if (pl == null) {
-                Text("Плейлист не найден")
+                Text("Плейлист не найден", modifier = Modifier.padding(16.dp))
             } else {
                 LazyColumn(
                     modifier = Modifier
@@ -88,7 +69,7 @@ fun PlaylistDetailScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(pl.tracks) { saved ->
-                        // Преобразуем сохранённый трек в модель Track
+                        // Преобразуем SavedTrack → Track
                         val art = Artwork(
                             `150x150`   = saved.imageUrl.orEmpty(),
                             `480x480`   = saved.imageUrl.orEmpty(),
@@ -106,20 +87,19 @@ fun PlaylistDetailScreen(
                         )
 
                         ListItem(
-                            headlineContent   = { Text(tr.title) },
-                            supportingContent = { Text(tr.user.name) },
-                            leadingContent    = {
+                            leadingContent = {
                                 AsyncImage(
-                                    // Безопасный вызов: арт может быть null
                                     model = tr.artwork?.`150x150`.orEmpty(),
                                     contentDescription = tr.title,
                                     modifier = Modifier.size(56.dp)
                                 )
                             },
+                            headlineContent   = { Text(tr.title) },
+                            supportingContent = { Text(tr.user.name) },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    // Собираем очередь всех треков плейлиста
+                                    // собираем очередь всех треков этого плейлиста
                                     val queue = pl.tracks.map { s ->
                                         Track(
                                             id      = s.id.orEmpty(),
@@ -137,6 +117,7 @@ fun PlaylistDetailScreen(
                                     }
                                     playerVm.play(tr, queue)
                                 }
+                                .padding(vertical = 4.dp)
                         )
                     }
                 }

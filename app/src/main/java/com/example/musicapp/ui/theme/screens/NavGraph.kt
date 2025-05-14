@@ -1,4 +1,4 @@
-// File: app/src/main/java/com/example/musicapp/ui/theme/screens/NavGraph.kt
+// app/src/main/java/com/example/musicapp/ui/theme/screens/NavGraph.kt
 package com.example.musicapp.ui.theme.screens
 
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -54,9 +54,9 @@ fun NavGraph(
         }
     ) { innerPadding ->
         NavHost(
-            navController  = navController,
-            startDestination = "login",
-            modifier       = modifier.padding(innerPadding)
+            navController     = navController,
+            startDestination  = "login",
+            modifier          = modifier.padding(innerPadding)
         ) {
             /* ---------- AUTH ---------- */
             composable("login") {

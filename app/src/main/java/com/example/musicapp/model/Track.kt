@@ -3,11 +3,13 @@ package com.example.musicapp.model
 data class Track(
     val id: String,
     val title: String,
-    val user: User,      // network-модель
-    val artwork: Artwork?
+    val user: User,
+    val artwork: Artwork?,
+    private val overrideUrl: String? = null
 ) {
+    /** Если при создании передан overrideUrl, используем его, иначе формируем стандартный URL */
     val streamUrl: String
-        get() = "https://api.audius.co/v1/tracks/$id/stream?app_name=MusicApp"
+        get() = overrideUrl ?: "https://api.audius.co/v1/tracks/$id/stream?app_name=MusicApp"
 }
 
 data class User(
