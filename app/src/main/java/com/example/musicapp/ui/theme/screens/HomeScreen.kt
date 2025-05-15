@@ -17,7 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
-import com.example.musicapp.model.*
+import com.example.musicapp.model.AlbumDisplay
 import com.example.musicapp.ui.theme.viewmodel.AuthViewModel
 import com.example.musicapp.ui.theme.viewmodel.PlayerViewModel
 import com.example.musicapp.viewmodel.HomeViewModel
@@ -29,16 +29,14 @@ fun HomeScreen(
     homeVm: HomeViewModel = viewModel()
 ) {
     val userId          by authVm.currentUserId.collectAsState()
-    val recentSaved     by homeVm.recentTracks.collectAsState()
+    val recentAlbums    by homeVm.recentAlbums.collectAsState()
     val mixes           by homeVm.dailyAlbums.collectAsState()
     val recommendations by homeVm.recommendations.collectAsState()
     val loading         by homeVm.isLoading.collectAsState()
 
-    // наш плеер
     val playerVm: PlayerViewModel = viewModel()
 
-    // Загружаем данные при появлении экрана
-    LaunchedEffect(Unit) {
+    LaunchedEffect(userId) {
         userId?.let { homeVm.loadHomeData(it) }
     }
 
@@ -61,90 +59,30 @@ fun HomeScreen(
             .padding(16.dp)
     ) {
         Text(
-            text = "Hello, welcome back!",
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onBackground
+            text  = "Hello, welcome back!",
+            style = MaterialTheme.typography.headlineMedium
         )
         Spacer(Modifier.height(24.dp))
 
-        Text(text = "Recently Played", style = MaterialTheme.typography.titleLarge)
-        Spacer(Modifier.height(8.dp))
-
-        // Кликабельный LazyRow
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(recentSaved) { st ->
-                // Преобразуем SavedTrack в Track
-                val art = Artwork(
-                    `150x150`   = st.imageUrl,
-                    `480x480`   = st.imageUrl,
-                    `1000x1000` = st.imageUrl
-                )
-                val usr = User(st.trackUserId, st.artist.orEmpty())
-                val track = Track(
-                    id      = st.id,
-                    title   = st.title.orEmpty(),
-                    user    = usr,
-                    artwork = art
-                )
-
-                Column(
-                    Modifier
-                        .width(140.dp)
-                        .clickable {
-                            // ставим в очередь и играем выбранный
-                            playerVm.play(track, recentSaved.map { saved ->
-                                // та же конверсия списка
-                                Track(
-                                    id      = saved.id,
-                                    title   = saved.title.orEmpty(),
-                                    user    = User(saved.trackUserId, saved.artist.orEmpty()),
-                                    artwork = Artwork(
-                                        `150x150`   = saved.imageUrl,
-                                        `480x480`   = saved.imageUrl,
-                                        `1000x1000` = saved.imageUrl
-                                    )
-                                )
-                            })
-                            // навигация на экран плеера
-                            navController.navigate("player")
-                        }
-                ) {
-                    Card(
-                        modifier = Modifier.size(140.dp),
-                        shape    = RoundedCornerShape(12.dp),
-                        colors   = CardDefaults.cardColors(MaterialTheme.colorScheme.surface)
-                    ) {
-                        AsyncImage(
-                            model           = st.imageUrl,
-                            contentDescription = st.title,
-                            contentScale    = ContentScale.Crop,
-                            modifier        = Modifier
-                                .fillMaxSize()
-                                .clip(RoundedCornerShape(12.dp))
-                        )
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text     = st.title.orEmpty(),
-                        style    = MaterialTheme.typography.bodyMedium,
-                        maxLines = 1
-                    )
-                }
-            }
-        }
-
-        Spacer(Modifier.height(24.dp))
+        // Теперь “Recently Played” переходит на общий экран AlbumScreen
         AlbumSection(
-            title       = "Daily Mix",
-            albums      = mixes,
-            onAlbumClick = { navController.navigate("album/$it") }
+            title        = "Recently Played",
+            albums       = recentAlbums,
+            onAlbumClick = { uid -> navController.navigate("album/$uid") }
         )
-
         Spacer(Modifier.height(24.dp))
+
         AlbumSection(
-            title       = "Today's Picks",
-            albums      = recommendations,
-            onAlbumClick = { navController.navigate("album/$it") }
+            title        = "Daily Mix",
+            albums       = mixes,
+            onAlbumClick = { uid -> navController.navigate("album/$uid") }
+        )
+        Spacer(Modifier.height(24.dp))
+
+        AlbumSection(
+            title        = "Today's Picks",
+            albums       = recommendations,
+            onAlbumClick = { uid -> navController.navigate("album/$uid") }
         )
     }
 }

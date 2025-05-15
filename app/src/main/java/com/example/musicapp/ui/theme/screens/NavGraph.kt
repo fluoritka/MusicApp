@@ -11,26 +11,33 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import com.example.musicapp.model.Track
-import com.example.musicapp.viewmodel.HomeViewModel
-import com.example.musicapp.viewmodel.SearchViewModel
+import com.example.musicapp.ui.theme.screens.LoginScreen
+import com.example.musicapp.ui.theme.screens.RegisterScreen
+import com.example.musicapp.ui.theme.screens.HomeScreen
+import com.example.musicapp.ui.theme.screens.SearchScreen
+import com.example.musicapp.ui.theme.screens.LibraryScreen
+import com.example.musicapp.ui.theme.screens.PlaylistDetailScreen
+import com.example.musicapp.ui.theme.screens.AlbumScreen
+import com.example.musicapp.ui.theme.screens.PlayerScreen
 import com.example.musicapp.ui.theme.viewmodel.AuthViewModel
 import com.example.musicapp.ui.theme.viewmodel.PlayerViewModel
+import com.example.musicapp.viewmodel.HomeViewModel
 
 @Composable
 fun NavGraph(
     navController: NavHostController,
     modifier: Modifier = Modifier
 ) {
-    // общий Auth и Player VM из Activity
-    val authVm: AuthViewModel = viewModel(LocalContext.current as ViewModelStoreOwner)
-    val playerVm: PlayerViewModel = viewModel(LocalContext.current as ViewModelStoreOwner)
+    // Shared ViewModels
+    val authVm   = viewModel<AuthViewModel>(LocalContext.current as ViewModelStoreOwner)
+    val playerVm = viewModel<PlayerViewModel>(LocalContext.current as ViewModelStoreOwner)
 
     NavHost(
         navController    = navController,
         startDestination = "login",
         modifier         = modifier
     ) {
+        // Login
         composable("login") {
             LoginScreen(
                 viewModel      = authVm,
@@ -42,6 +49,8 @@ fun NavGraph(
                 onRegisterNav  = { navController.navigate("register") }
             )
         }
+
+        // Register
         composable("register") {
             RegisterScreen(
                 viewModel          = authVm,
@@ -49,6 +58,8 @@ fun NavGraph(
                 onBackToLogin     = { navController.popBackStack() }
             )
         }
+
+        // Home
         composable("home") {
             val homeVm: HomeViewModel = viewModel()
             HomeScreen(
@@ -57,14 +68,20 @@ fun NavGraph(
                 homeVm        = homeVm
             )
         }
+
+        // Search
         composable("search") {
             SearchScreen()
         }
+
+        // Library
         composable("library") {
             LibraryScreen(
                 onOpenPlaylist = { pid -> navController.navigate("plist/$pid") }
             )
         }
+
+        // Playlist Details
         composable(
             route     = "plist/{pid}",
             arguments = listOf(navArgument("pid") { type = NavType.StringType })
@@ -76,16 +93,20 @@ fun NavGraph(
                 onPlayerClick = { navController.navigate("player") }
             )
         }
+
+        // Album (including Recently Played as userId="recent")
         composable(
             route     = "album/{userId}",
             arguments = listOf(navArgument("userId") { type = NavType.StringType })
         ) { back ->
             val userId = back.arguments?.getString("userId").orEmpty()
             AlbumScreen(
-                userId       = userId,
+                userId        = userId,
                 onTrackClick = { navController.navigate("player") }
             )
         }
+
+        // Player
         composable("player") {
             PlayerScreen(onBack = { navController.popBackStack() })
         }
