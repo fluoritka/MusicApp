@@ -15,25 +15,29 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.example.musicapp.model.*
 import com.example.musicapp.ui.theme.viewmodel.AuthViewModel
+import com.example.musicapp.ui.theme.viewmodel.PlayerViewModel
 import com.example.musicapp.viewmodel.HomeViewModel
 
 @Composable
 fun HomeScreen(
-    onPlayTrack: (Track) -> Unit,
-    onAlbumClick: (String) -> Unit,
+    navController: NavHostController,
     authVm: AuthViewModel = viewModel(),
     homeVm: HomeViewModel = viewModel()
 ) {
     val userId          by authVm.currentUserId.collectAsState()
-    val recent          by homeVm.recentTracks.collectAsState()
+    val recentSaved     by homeVm.recentTracks.collectAsState()
     val mixes           by homeVm.dailyAlbums.collectAsState()
     val recommendations by homeVm.recommendations.collectAsState()
     val loading         by homeVm.isLoading.collectAsState()
 
-    // Подгружаем данные при каждом показе экрана
+    // наш плеер
+    val playerVm: PlayerViewModel = viewModel()
+
+    // Загружаем данные при появлении экрана
     LaunchedEffect(Unit) {
         userId?.let { homeVm.loadHomeData(it) }
     }
@@ -65,45 +69,64 @@ fun HomeScreen(
 
         Text(text = "Recently Played", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(8.dp))
+
+        // Кликабельный LazyRow
         LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(recent) { st ->
+            items(recentSaved) { st ->
+                // Преобразуем SavedTrack в Track
+                val art = Artwork(
+                    `150x150`   = st.imageUrl,
+                    `480x480`   = st.imageUrl,
+                    `1000x1000` = st.imageUrl
+                )
+                val usr = User(st.trackUserId, st.artist.orEmpty())
+                val track = Track(
+                    id      = st.id,
+                    title   = st.title.orEmpty(),
+                    user    = usr,
+                    artwork = art
+                )
+
                 Column(
                     Modifier
                         .width(140.dp)
                         .clickable {
-                            val art = Artwork(
-                                `150x150`   = st.imageUrl,
-                                `480x480`   = st.imageUrl,
-                                `1000x1000` = st.imageUrl
-                            )
-                            val usr = User(st.trackUserId, st.artist.orEmpty())
-                            val t = Track(
-                                id = st.id,
-                                title = st.title.orEmpty(),
-                                user = usr,
-                                artwork = art
-                            )
-                            onPlayTrack(t)
+                            // ставим в очередь и играем выбранный
+                            playerVm.play(track, recentSaved.map { saved ->
+                                // та же конверсия списка
+                                Track(
+                                    id      = saved.id,
+                                    title   = saved.title.orEmpty(),
+                                    user    = User(saved.trackUserId, saved.artist.orEmpty()),
+                                    artwork = Artwork(
+                                        `150x150`   = saved.imageUrl,
+                                        `480x480`   = saved.imageUrl,
+                                        `1000x1000` = saved.imageUrl
+                                    )
+                                )
+                            })
+                            // навигация на экран плеера
+                            navController.navigate("player")
                         }
                 ) {
                     Card(
                         modifier = Modifier.size(140.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface)
+                        shape    = RoundedCornerShape(12.dp),
+                        colors   = CardDefaults.cardColors(MaterialTheme.colorScheme.surface)
                     ) {
                         AsyncImage(
-                            model = st.imageUrl,
+                            model           = st.imageUrl,
                             contentDescription = st.title,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
+                            contentScale    = ContentScale.Crop,
+                            modifier        = Modifier
                                 .fillMaxSize()
                                 .clip(RoundedCornerShape(12.dp))
                         )
                     }
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = st.title.orEmpty(),
-                        style = MaterialTheme.typography.bodyMedium,
+                        text     = st.title.orEmpty(),
+                        style    = MaterialTheme.typography.bodyMedium,
                         maxLines = 1
                     )
                 }
@@ -111,19 +134,17 @@ fun HomeScreen(
         }
 
         Spacer(Modifier.height(24.dp))
-        // Daily Mix
         AlbumSection(
-            title = "Daily Mix",
-            albums = mixes,
-            onAlbumClick = onAlbumClick
+            title       = "Daily Mix",
+            albums      = mixes,
+            onAlbumClick = { navController.navigate("album/$it") }
         )
 
         Spacer(Modifier.height(24.dp))
-        // Today's Picks
         AlbumSection(
-            title = "Today's Picks",
-            albums = recommendations,
-            onAlbumClick = onAlbumClick
+            title       = "Today's Picks",
+            albums      = recommendations,
+            onAlbumClick = { navController.navigate("album/$it") }
         )
     }
 }
@@ -145,22 +166,22 @@ private fun AlbumSection(
             ) {
                 Card(
                     modifier = Modifier.size(140.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface)
+                    shape    = RoundedCornerShape(12.dp),
+                    colors   = CardDefaults.cardColors(MaterialTheme.colorScheme.surface)
                 ) {
                     AsyncImage(
-                        model = alb.coverUrl,
+                        model           = alb.coverUrl,
                         contentDescription = alb.title,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
+                        contentScale    = ContentScale.Crop,
+                        modifier        = Modifier
                             .fillMaxSize()
                             .clip(RoundedCornerShape(12.dp))
                     )
                 }
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = alb.title,
-                    style = MaterialTheme.typography.bodyMedium,
+                    text     = alb.title,
+                    style    = MaterialTheme.typography.bodyMedium,
                     maxLines = 1
                 )
             }

@@ -42,9 +42,8 @@ class HomeViewModel : ViewModel() {
     private val _featuredTracks  = MutableStateFlow<List<Track>>(emptyList())
     val   featuredTracks: StateFlow<List<Track>>        = _featuredTracks
 
-    // Новая секция Recommendations
-    private val _recommendations     = MutableStateFlow<List<AlbumDisplay>>(emptyList())
-    val   recommendations  : StateFlow<List<AlbumDisplay>> = _recommendations
+    private val _recommendations = MutableStateFlow<List<AlbumDisplay>>(emptyList())
+    val   recommendations : StateFlow<List<AlbumDisplay>> = _recommendations
 
     private val _isLoading      = MutableStateFlow(false)
     val   isLoading      : StateFlow<Boolean> = _isLoading
@@ -53,50 +52,48 @@ class HomeViewModel : ViewModel() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                val (recent, mixes, featured) = withContext(Dispatchers.IO) {
-                    // 1) последние 20
-                    val recent20 = realm
-                        .query<SavedTrack>("userId == $0", userId)
+                // 1) Load last 20 saved tracks from Realm
+                val recent20 = withContext(Dispatchers.IO) {
+                    realm.query<SavedTrack>("userId == $0", userId)
                         .sort("playedAt", Sort.DESCENDING)
                         .limit(20)
                         .find()
+                }
 
-                    // 2) Daily Mix по артистам
-                    val artistIds = recent20.map { it.trackUserId }.distinct().take(6)
-                    val mixes = artistIds.map { id ->
-                        async {
-                            val tracks = repo.getUserTracks(id).take(60)
-                            tracks.firstOrNull()?.let { first ->
+                // 2) Build Daily Mix: take up to 6 distinct artist IDs
+                val artistIds = recent20.map { it.trackUserId }.distinct().take(6)
+                val mixes = artistIds.map { id ->
+                    async(Dispatchers.IO) {
+                        repo.getUserTracks(id)
+                            .firstOrNull()
+                            ?.let { first ->
                                 AlbumDisplay(
                                     userId   = id,
                                     title    = "${first.user.name} Mix",
                                     coverUrl = first.artwork?.`150x150`
                                 )
                             }
-                        }
-                    }.mapNotNull { it.await() }
+                    }
+                }.mapNotNull { it.await() }
 
-                    // 3) Today’s Picks — топ-треки жанра
-                    val todays = repo.searchTracks("electronic").take(60)
-
-                    Triple(recent20, mixes, todays)
+                // 3) Fetch featured tracks (“Today’s Picks”)
+                val todays = withContext(Dispatchers.IO) {
+                    repo.searchTracks("electronic")
                 }
 
-                // 4) Recommendations — возьмём первые 20 featuredTracks
-                val recs = featured
-                    .map { tr ->
-                        AlbumDisplay(
-                            userId   = tr.user.id,
-                            title    = tr.title,
-                            coverUrl = tr.artwork?.`150x150`
-                        )
-                    }
-                    .take(20)
+                // 4) Build Recommendations from featured
+                val recs = todays.map { tr ->
+                    AlbumDisplay(
+                        userId   = tr.user.id,
+                        title    = tr.title,
+                        coverUrl = tr.artwork?.`150x150`
+                    )
+                }.take(20)
 
-                // публикуем все секции
-                _recentTracks.value    = recent
+                // 5) Publish all flows
+                _recentTracks.value    = recent20
                 _dailyAlbums.value     = mixes
-                _featuredTracks.value  = featured
+                _featuredTracks.value  = todays
                 _recommendations.value = recs
 
             } catch (e: Exception) {

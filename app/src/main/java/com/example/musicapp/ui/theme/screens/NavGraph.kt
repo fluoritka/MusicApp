@@ -1,4 +1,4 @@
-// NavGraph.kt
+// app/src/main/java/com/example/musicapp/ui/theme/screens/NavGraph.kt
 package com.example.musicapp.ui.theme.screens
 
 import androidx.compose.runtime.Composable
@@ -12,10 +12,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.example.musicapp.model.Track
-import com.example.musicapp.ui.theme.viewmodel.AuthViewModel
-import com.example.musicapp.ui.theme.viewmodel.PlayerViewModel
 import com.example.musicapp.viewmodel.HomeViewModel
 import com.example.musicapp.viewmodel.SearchViewModel
+import com.example.musicapp.ui.theme.viewmodel.AuthViewModel
+import com.example.musicapp.ui.theme.viewmodel.PlayerViewModel
 
 @Composable
 fun NavGraph(
@@ -52,18 +52,13 @@ fun NavGraph(
         composable("home") {
             val homeVm: HomeViewModel = viewModel()
             HomeScreen(
-                onPlayTrack  = { _: Track -> navController.navigate("player") },
-                onAlbumClick = { id -> navController.navigate("album/$id") },
-                authVm       = authVm,
-                homeVm       = homeVm
+                navController = navController,
+                authVm        = authVm,
+                homeVm        = homeVm
             )
         }
         composable("search") {
-            val searchVm: SearchViewModel = viewModel()
-            SearchScreen(
-                viewModel     = searchVm,
-                authViewModel = authVm
-            )
+            SearchScreen()
         }
         composable("library") {
             LibraryScreen(
