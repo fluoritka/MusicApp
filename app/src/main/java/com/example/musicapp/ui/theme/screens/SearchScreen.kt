@@ -36,11 +36,18 @@ fun SearchScreen(
         viewModel(LocalContext.current as ViewModelStoreOwner)
 
     var query by remember { mutableStateOf("") }
-    val tracks   by viewModel.tracks.collectAsState()
-    val playing  by playerVm.isPlaying.collectAsState()
-    val current  by playerVm.currentTrack.collectAsState()
-
+    val tracks by viewModel.tracks.collectAsState()
+    val isSearching by viewModel.isSearching.collectAsState()
+    val playing by playerVm.isPlaying.collectAsState()
+    val current by playerVm.currentTrack.collectAsState()
     val focus = LocalFocusManager.current
+
+    // автопоиск при вводе
+    LaunchedEffect(query) {
+        if (query.isNotBlank()) {
+            viewModel.search(query)
+        }
+    }
 
     Column(Modifier.fillMaxSize()) {
         OutlinedTextField(
@@ -51,11 +58,24 @@ fun SearchScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            keyboardOptions  = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions  = KeyboardActions(onSearch = {
-                viewModel.search(query); focus.clearFocus()
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = {
+                viewModel.search(query)
+                focus.clearFocus()
             })
         )
+
+        // индикатор загрузки
+        if (isSearching) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        }
 
         LazyColumn(
             modifier = Modifier
@@ -65,10 +85,10 @@ fun SearchScreen(
         ) {
             itemsIndexed(tracks) { _, track ->
                 TrackRow(
-                    track   = track,
-                    isNow   = current?.id == track.id,
+                    track = track,
+                    isNow = current?.id == track.id,
                     playing = playing,
-                    onClick = { playerVm.play(track, tracks) }   // ← очередь = результаты поиска
+                    onClick = { playerVm.play(track, tracks) }
                 )
             }
         }

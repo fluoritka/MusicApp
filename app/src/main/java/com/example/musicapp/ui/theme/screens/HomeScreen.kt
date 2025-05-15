@@ -1,3 +1,4 @@
+// app/src/main/java/com/example/musicapp/ui/theme/screens/HomeScreen.kt
 package com.example.musicapp.ui.theme.screens
 
 import androidx.compose.foundation.background
@@ -21,10 +22,10 @@ import com.example.musicapp.viewmodel.HomeViewModel
 
 @Composable
 fun HomeScreen(
-    onPlayTrack : (Track)  -> Unit,
+    onPlayTrack: (Track) -> Unit,
     onAlbumClick: (String) -> Unit,
-    authVm:      AuthViewModel = viewModel(),
-    homeVm:      HomeViewModel = viewModel()
+    authVm: AuthViewModel = viewModel(),
+    homeVm: HomeViewModel = viewModel()
 ) {
     val userId          by authVm.currentUserId.collectAsState()
     val recent          by homeVm.recentTracks.collectAsState()
@@ -32,7 +33,8 @@ fun HomeScreen(
     val recommendations by homeVm.recommendations.collectAsState()
     val loading         by homeVm.isLoading.collectAsState()
 
-    LaunchedEffect(userId) {
+    // Подгружаем данные при каждом показе экрана
+    LaunchedEffect(Unit) {
         userId?.let { homeVm.loadHomeData(it) }
     }
 
@@ -55,13 +57,12 @@ fun HomeScreen(
             .padding(16.dp)
     ) {
         Text(
-            text  = "Hello, welcome back!",
+            text = "Hello, welcome back!",
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onBackground
         )
         Spacer(Modifier.height(24.dp))
 
-        // Recently Played
         Text(text = "Recently Played", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(8.dp))
         LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -75,29 +76,34 @@ fun HomeScreen(
                                 `480x480`   = st.imageUrl,
                                 `1000x1000` = st.imageUrl
                             )
-                            val usr = User(st.trackUserId, st.artist ?: "")
-                            val t   = Track(id = st.id, title = st.title ?: "", user = usr, artwork = art)
+                            val usr = User(st.trackUserId, st.artist.orEmpty())
+                            val t = Track(
+                                id = st.id,
+                                title = st.title.orEmpty(),
+                                user = usr,
+                                artwork = art
+                            )
                             onPlayTrack(t)
                         }
                 ) {
                     Card(
                         modifier = Modifier.size(140.dp),
-                        shape    = RoundedCornerShape(12.dp),
-                        colors   = CardDefaults.cardColors(MaterialTheme.colorScheme.surface)
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface)
                     ) {
                         AsyncImage(
-                            model            = st.imageUrl,
+                            model = st.imageUrl,
                             contentDescription = st.title,
-                            contentScale     = ContentScale.Crop,
-                            modifier         = Modifier
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
                                 .fillMaxSize()
                                 .clip(RoundedCornerShape(12.dp))
                         )
                     }
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text     = st.title ?: "",
-                        style    = MaterialTheme.typography.bodyMedium,
+                        text = st.title.orEmpty(),
+                        style = MaterialTheme.typography.bodyMedium,
                         maxLines = 1
                     )
                 }
@@ -105,20 +111,18 @@ fun HomeScreen(
         }
 
         Spacer(Modifier.height(24.dp))
-
         // Daily Mix
         AlbumSection(
-            title        = "Daily Mix",
-            albums       = mixes,
+            title = "Daily Mix",
+            albums = mixes,
             onAlbumClick = onAlbumClick
         )
 
         Spacer(Modifier.height(24.dp))
-
-        // Today’s Picks (recommendations)
+        // Today's Picks
         AlbumSection(
-            title        = "Today’s Picks",
-            albums       = recommendations,
+            title = "Today's Picks",
+            albums = recommendations,
             onAlbumClick = onAlbumClick
         )
     }
@@ -141,22 +145,22 @@ private fun AlbumSection(
             ) {
                 Card(
                     modifier = Modifier.size(140.dp),
-                    shape    = RoundedCornerShape(12.dp),
-                    colors   = CardDefaults.cardColors(MaterialTheme.colorScheme.surface)
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface)
                 ) {
                     AsyncImage(
-                        model            = alb.coverUrl,
+                        model = alb.coverUrl,
                         contentDescription = alb.title,
-                        contentScale     = ContentScale.Crop,
-                        modifier         = Modifier
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
                             .fillMaxSize()
                             .clip(RoundedCornerShape(12.dp))
                     )
                 }
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text     = alb.title,
-                    style    = MaterialTheme.typography.bodyMedium,
+                    text = alb.title,
+                    style = MaterialTheme.typography.bodyMedium,
                     maxLines = 1
                 )
             }

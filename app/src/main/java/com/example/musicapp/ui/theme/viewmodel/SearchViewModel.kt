@@ -5,11 +5,13 @@ import androidx.lifecycle.viewModelScope
 import com.example.musicapp.model.Track
 import com.example.musicapp.network.RetrofitInstance
 import com.example.musicapp.repository.AudiusRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class SearchViewModel : ViewModel() {
     private val repository = AudiusRepository(RetrofitInstance.api)
@@ -23,23 +25,27 @@ class SearchViewModel : ViewModel() {
     private var searchJob: Job? = null
 
     fun search(query: String) {
-        // Отменяем предыдущий запрос, если пользователь продолжает печатать
+        // отменяем предыдущий запрос при быстром вводе
         searchJob?.cancel()
 
         if (query.isBlank()) {
             _tracks.value = emptyList()
+            _isSearching.value = false
             return
         }
 
-        // Делаем небольшую задержку, чтобы не дергать API на каждый символ
         searchJob = viewModelScope.launch {
+            // дебаунс 300 мс
             delay(300)
+            _isSearching.value = true
             try {
-                _isSearching.value = true
-                _tracks.value = repository.searchTracks(query)
+                // сетевой вызов на IO
+                val result = withContext(Dispatchers.IO) {
+                    repository.searchTracks(query)
+                }
+                _tracks.value = result
             } catch (e: Exception) {
                 e.printStackTrace()
-                // В реальном приложении лучше показывать ошибку пользователю
             } finally {
                 _isSearching.value = false
             }
