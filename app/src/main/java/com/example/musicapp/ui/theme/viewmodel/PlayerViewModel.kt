@@ -4,6 +4,7 @@ package com.example.musicapp.ui.theme.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.media3.common.AudioAttributes
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import com.example.musicapp.model.SavedTrack
@@ -19,7 +20,12 @@ import kotlinx.coroutines.launch
 
 class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
-    private val exo = ExoPlayer.Builder(app).build()
+    private val exo = ExoPlayer.Builder(app)
+        .build()
+        .apply {
+            setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true)
+            setHandleAudioBecomingNoisy(true)
+        }
 
     private val realm: Realm by lazy {
         Realm.open(
@@ -49,14 +55,14 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     init {
         viewModelScope.launch {
             while (true) {
-                val dur = exo.duration.takeIf { it > 0 } ?: 1L
+                val dur = exo.duration.takeIf { it > 0L } ?: 1L
                 _progress.value = exo.currentPosition / dur.toFloat()
                 delay(500)
             }
         }
     }
 
-    /** Обычное воспроизведение List<Track> из сети */
+    /** Обычное воспроизведение списка Track */
     fun play(track: Track, queue: List<Track> = _queue.value) {
         val newIdx = queue.indexOfFirst { it.id == track.id }
         if (newIdx == -1) return
@@ -67,34 +73,31 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         } else resume()
     }
 
-    /** Воспроизведение сохранённых треков из БД */
+    /** Воспроизведение сохранённых треков */
     fun playSaved(saved: SavedTrack, savedQueue: List<SavedTrack> = listOf(saved)) {
-        // преобразуем SavedTrack в модель Track для единого API
         val list = savedQueue.map {
             Track(
                 id = it.id,
                 title = it.title.orEmpty(),
                 user = com.example.musicapp.model.User(it.trackUserId, it.artist.orEmpty()),
-                artwork = com.example.musicapp.model.Artwork(it.imageUrl, it.imageUrl, it.imageUrl)
+                artwork = com.example.musicapp.model.Artwork(it.imageUrl, it.imageUrl, it.imageUrl),
+                overrideUrl = it.streamUrl  // <- здесь передаём сохранённый URL
             )
         }
-        play(
-            list.first { it.id == saved.id },
-            list
-        )
+        play(list.first { it.id == saved.id }, list)
     }
 
-    fun toggle()        = if (_isPlaying.value) pause() else resume()
-    fun seekTo(f: Float)= exo.seekTo((exo.duration * f).toLong())
-    fun skipNext()      = if (_index.value + 1 < _queue.value.size) play(_queue.value[_index.value + 1])
-    else Unit
-    fun skipPrevious()  = if (_index.value - 1 >= 0) play(_queue.value[_index.value - 1])
-    else Unit
+    fun toggle()         = if (_isPlaying.value) pause() else resume()
+    fun seekTo(f: Float) = exo.seekTo((exo.duration * f).toLong())
+    fun skipNext()       { if (_index.value + 1 < _queue.value.size) play(_queue.value[_index.value + 1]) }
+    fun skipPrevious()   { if (_index.value - 1 >= 0) play(_queue.value[_index.value - 1]) }
 
     private fun start(tr: Track) {
-        exo.stop(); exo.clearMediaItems()
-        exo.setMediaItem(MediaItem.fromUri(tr.streamUrl))
-        exo.prepare(); exo.play()
+        exo.stop()
+        exo.clearMediaItems()
+        exo.setMediaItem(MediaItem.fromUri(tr.streamUrl))  // <- streamUrl, как в модели Track :contentReference[oaicite:0]{index=0}:contentReference[oaicite:1]{index=1}
+        exo.prepare()
+        exo.play()
         _current.value   = tr
         _isPlaying.value = true
 
@@ -118,8 +121,8 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private fun pause()  { exo.pause(); _isPlaying.value = false }
-    private fun resume() { exo.play();  _isPlaying.value = true }
+    private fun pause()  { exo.pause();  _isPlaying.value = false }
+    private fun resume() { exo.play();   _isPlaying.value = true }
 
     override fun onCleared() {
         exo.release()
