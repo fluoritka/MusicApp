@@ -1,4 +1,3 @@
-// app/src/main/java/com/example/musicapp/ui/theme/screens/SearchScreen.kt
 package com.example.musicapp.ui.theme.screens
 
 import androidx.compose.foundation.clickable

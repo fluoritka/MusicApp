@@ -23,23 +23,30 @@ import com.example.musicapp.viewmodel.PlaylistViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PlayerScreen(onBack: () -> Unit) {
-    BackHandler { onBack() }
+fun PlayerScreen(onBack: () -> Unit) { // Компонент экрана плеера
+    BackHandler { onBack() } // Обработка нажатия "назад"
 
+    // Получаем ViewModel для управления воспроизведением
     val playerVm: PlayerViewModel =
         viewModel(LocalContext.current as ViewModelStoreOwner)
+    // Получаем ViewModel для работы с плейлистами и избранным
     val playlistVm: PlaylistViewModel = viewModel()
 
+    // Подписываемся на состояние текущего трека
     val track    by playerVm.currentTrack.collectAsState()
+    // Подписываемся на состояние воспроизведения (играет/пауза)
     val playing  by playerVm.isPlaying.collectAsState()
+    // Подписываемся на прогресс воспроизведения
     val progress by playerVm.progress.collectAsState()
 
+    // Подписываемся на список плейлистов
     val playlists by playlistVm.playlists.collectAsState()
+    // Флаг для показа диалога выбора плейлиста
     var showPlaylistDialog by remember { mutableStateOf(false) }
 
-    Scaffold(
+    Scaffold( // Основная структура экрана
         topBar = {
-            SmallTopAppBar(
+            SmallTopAppBar( // Верхняя панель с кнопкой "назад" и заголовком
                 title = { Text(track?.title ?: "Now Playing") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -49,41 +56,41 @@ fun PlayerScreen(onBack: () -> Unit) {
             )
         }
     ) { innerPadding ->
-        Box(
+        Box( // Контейнер для центрирования содержимого
             Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
             contentAlignment = Alignment.Center
         ) {
-            if (track == null) {
+            if (track == null) { // Если трек не загружен
                 Text("Ничего не играет")
             } else {
-                Column(
+                Column( // Вертикальный список элементов плеера
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(32.dp),
                     modifier = Modifier.padding(24.dp)
                 ) {
-                    AsyncImage(
+                    AsyncImage( // Отображаем обложку трека
                         model = track!!.artwork?.`480x480` ?: track!!.artwork?.`150x150`,
                         contentDescription = track!!.title,
                         modifier = Modifier
                             .size(300.dp)
                             .clip(RoundedCornerShape(16.dp))
                     )
-                    Text(track!!.title, style = MaterialTheme.typography.headlineSmall)
-                    Text(track!!.user.name, style = MaterialTheme.typography.bodyMedium)
+                    Text(track!!.title, style = MaterialTheme.typography.headlineSmall) // Название трека
+                    Text(track!!.user.name, style = MaterialTheme.typography.bodyMedium) // Имя исполнителя
 
-                    Slider(
+                    Slider( // Ползунок прогресса воспроизведения
                         value = progress,
                         onValueChange = playerVm::seekTo,
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    Row(
+                    Row( // Контейнер для кнопок управления
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Кнопка выбора плейлиста
+                        // Кнопка добавления в плейлист
                         IconButton(
                             onClick = { if (track != null) showPlaylistDialog = true },
                             enabled = track != null && playlists.isNotEmpty()
@@ -94,9 +101,11 @@ fun PlayerScreen(onBack: () -> Unit) {
                             )
                         }
 
-                        // Тоггл избранного
+                        // Получаем список избранных треков
                         val favorites by playlistVm.favorites.collectAsState()
+                        // Проверяем, находится ли текущий трек в избранном
                         val isFav = track?.id?.let { id -> favorites.any { it.trackId == id } } == true
+                        // Кнопка "избранное"
                         IconButton(onClick = { track?.let { playlistVm.toggleFavorite(it) } }) {
                             Icon(
                                 imageVector = if (isFav) Icons.Filled.Favorite else Icons.Default.FavoriteBorder,
@@ -104,6 +113,7 @@ fun PlayerScreen(onBack: () -> Unit) {
                             )
                         }
 
+                        // Кнопка перехода к предыдущему треку
                         IconButton(
                             onClick = playerVm::skipPrevious,
                             enabled = playerVm.index.collectAsState().value > 0
@@ -111,6 +121,7 @@ fun PlayerScreen(onBack: () -> Unit) {
                             Icon(Icons.Default.SkipPrevious, contentDescription = "Previous")
                         }
 
+                        // Кнопка play/pause
                         FilledIconButton(onClick = playerVm::toggle, modifier = Modifier.size(72.dp)) {
                             Icon(
                                 if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
@@ -119,6 +130,7 @@ fun PlayerScreen(onBack: () -> Unit) {
                             )
                         }
 
+                        // Кнопка перехода к следующему треку
                         IconButton(
                             onClick = playerVm::skipNext,
                             enabled = playerVm.index.collectAsState().value < playerVm.queue.collectAsState().value.lastIndex
@@ -137,27 +149,27 @@ fun PlayerScreen(onBack: () -> Unit) {
             onDismissRequest = { showPlaylistDialog = false },
             title = { Text("Выберите плейлист") },
             text = {
-                Column(
+                Column( // Список плейлистов внутри диалога
                     modifier = Modifier
                         .fillMaxWidth()
                         .verticalScroll(rememberScrollState())
                 ) {
-                    playlists.forEach { pl ->
+                    playlists.forEach { pl -> // Для каждого плейлиста создаём кнопку
                         TextButton(
                             onClick = {
-                                track?.let { playlistVm.addTrackToPlaylist(it, pl.id) }
+                                track?.let { playlistVm.addTrackToPlaylist(it, pl.id) } // Добавляем трек в выбранный плейлист
                                 showPlaylistDialog = false
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(pl.title)
+                            Text(pl.title) // Название плейлиста
                         }
                     }
                 }
             },
-            confirmButton = {},
+            confirmButton = {}, // без кнопки подтверждения
             dismissButton = {
-                TextButton(onClick = { showPlaylistDialog = false }) {
+                TextButton(onClick = { showPlaylistDialog = false }) { // Кнопка отмены
                     Text("Отмена")
                 }
             }

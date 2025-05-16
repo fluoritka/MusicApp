@@ -1,3 +1,5 @@
+// Экран «Библиотека»: отображает избранные треки и пользовательские плейлисты
+@file:Suppress("UnusedImport")
 package com.example.musicapp.ui.theme.screens
 
 import androidx.compose.foundation.clickable
@@ -22,26 +24,30 @@ import com.example.musicapp.viewmodel.PlaylistViewModel
 
 @Composable
 fun LibraryScreen(
-    onOpenPlaylist: (String) -> Unit,
-    playlistVm: PlaylistViewModel = viewModel()
+    onOpenPlaylist: (String) -> Unit,             // навигация при открытии плейлиста
+    playlistVm: PlaylistViewModel = viewModel()    // ViewModel для работы с плейлистами
 ) {
+    // Состояния списка плейлистов и избранных треков
     val playlists by playlistVm.playlists.collectAsState()
     val favorites by playlistVm.favorites.collectAsState()
+    // ViewModel плеера для воспроизведения треков
     val playerVm: PlayerViewModel =
         viewModel(LocalContext.current as ViewModelStoreOwner)
 
+    // Показ диалога создания нового плейлиста
     var showDlg by remember { mutableStateOf(false) }
     var title   by remember { mutableStateOf("") }
 
     if (showDlg) {
+        // Диалог ввода названия нового плейлиста
         AlertDialog(
             onDismissRequest = { showDlg = false },
             title            = { Text("Новый плейлист") },
             text             = {
                 OutlinedTextField(
-                    value       = title,
-                    onValueChange= { title = it },
-                    label       = { Text("Название") }
+                    value        = title,
+                    onValueChange = { title = it },
+                    label        = { Text("Название") }
                 )
             },
             confirmButton   = {
@@ -56,11 +62,13 @@ fun LibraryScreen(
         )
     }
 
+    // Основная вертикальная прокрутка: избранное и плейлисты
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding      = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
+        // Раздел избранных треков
         item {
             Text("Любимые треки", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(8.dp))
@@ -70,6 +78,7 @@ fun LibraryScreen(
                         Modifier
                             .width(140.dp)
                             .clickable {
+                                // Преобразуем SavedTrack в Track и воспроизводим
                                 val tr = Track(
                                     id      = ft.trackId,
                                     title   = ft.title,
@@ -98,6 +107,7 @@ fun LibraryScreen(
             }
         }
 
+        // Заголовок и кнопка создания нового плейлиста
         item {
             Row(
                 Modifier.fillMaxWidth(),
@@ -112,11 +122,12 @@ fun LibraryScreen(
             }
         }
 
+        // Список пользовательских плейлистов
         items(playlists) { pl ->
             Card(
                 Modifier
                     .fillMaxWidth()
-                    .clickable { onOpenPlaylist(pl.id) }
+                    .clickable { onOpenPlaylist(pl.id) } // открываем выбранный плейлист
             ) {
                 Column(Modifier.padding(16.dp)) {
                     Text(pl.title, style = MaterialTheme.typography.titleMedium)

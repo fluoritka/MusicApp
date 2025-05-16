@@ -19,21 +19,20 @@ import coil.compose.AsyncImage
 import com.example.musicapp.model.Track
 
 /**
- * Мини-плеер а-ля Spotify: занимает всю ширину снизу экрана,
- * сверху тонкая progress-bar, далее строка с обложкой, тайтлом
- * и базовыми контролами.
+ * Мини-плеер в стиле Spotify:
+ * отображает прогресс-бар и основные элементы управления треком.
  */
 @Composable
 fun ModernMiniPlayerBar(
-    track: Track,
-    isPlaying: Boolean,
-    progress: Float,
+    track: Track,                            // текущий трек для отображения
+    isPlaying: Boolean,                      // состояние воспроизведения
+    progress: Float,                         // прогресс воспроизведения (0f..1f)
     onProgressChange: (Float) -> Unit,
-    onSkipPrevious: () -> Unit,
-    onPlayPauseToggle: () -> Unit,
-    onSkipNext: () -> Unit,
-    onPlayerClick: () -> Unit,
-    modifier: Modifier = Modifier
+    onSkipPrevious: () -> Unit,              // переключить на предыдущий трек
+    onPlayPauseToggle: () -> Unit,           // пауза/воспроизведение
+    onSkipNext: () -> Unit,                  // переключить на следующий трек
+    onPlayerClick: () -> Unit,               // клик по мини-плееру
+    modifier: Modifier = Modifier            // модификатор для внешнего оформления
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surface,
@@ -41,26 +40,26 @@ fun ModernMiniPlayerBar(
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         modifier = modifier
             .fillMaxWidth()
-            .clickable { onPlayerClick() }
+            .clickable { onPlayerClick() }     // открытие полного плеера по клику
     ) {
         Column {
-            /* --- тонкий индикатор прогресса сверху --- */
+            // Прогресс-бар воспроизведения сверху
             LinearProgressIndicator(
                 progress = progress.coerceIn(0f, 1f),
-                color     = MaterialTheme.colorScheme.primary,
-                trackColor= MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
-                modifier  = Modifier
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                modifier = Modifier
                     .fillMaxWidth()
                     .height(2.dp)
             )
 
-            /* --- содержимое мини-плеера --- */
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 10.dp)
             ) {
+                // Обложка трека с округлыми углами
                 AsyncImage(
                     model = track.artwork?.`150x150`,
                     contentDescription = track.title,
@@ -71,24 +70,26 @@ fun ModernMiniPlayerBar(
                 )
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
+                    // Название и исполнитель
                     Text(
-                        text  = track.title,
+                        text = track.title,
                         style = MaterialTheme.typography.bodyLarge,
                         maxLines = 1
                     )
                     Text(
-                        text  = track.user.name,
+                        text = track.user.name,
                         style = MaterialTheme.typography.bodySmall,
                         maxLines = 1,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
+                // Кнопки управления: предыдущий, воспроизведение/пауза, следующий
                 IconButton(onClick = onSkipPrevious) {
-                    Icon(Icons.Filled.SkipPrevious, contentDescription = "Prev")
+                    Icon(Icons.Filled.SkipPrevious, contentDescription = "Previous")
                 }
                 FilledIconButton(
                     onClick = onPlayPauseToggle,
-                    shape   = RoundedCornerShape(50)
+                    shape = RoundedCornerShape(50)
                 ) {
                     Icon(
                         if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,

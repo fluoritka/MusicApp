@@ -1,7 +1,7 @@
-// app/src/main/java/com/example/musicapp/session/SessionManager.kt
 package com.example.musicapp.session
 
+// Менеджер сессии приложения
 object SessionManager {
-    // Заполняется в AuthViewModel после успешного входа
+    // ID текущего авторизованного пользователя
     var currentUserId: String? = null
 }

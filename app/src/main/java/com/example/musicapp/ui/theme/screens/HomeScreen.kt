@@ -1,4 +1,5 @@
-// app/src/main/java/com/example/musicapp/ui/theme/screens/HomeScreen.kt
+// Экран главного раздела: приветствие и секции альбомов (Recently Played, Daily Mix, Today's Picks)
+@file:Suppress("UnusedImport")
 package com.example.musicapp.ui.theme.screens
 
 import androidx.compose.foundation.background
@@ -25,21 +26,25 @@ import com.example.musicapp.viewmodel.HomeViewModel
 @Composable
 fun HomeScreen(
     navController: NavHostController,
-    authVm: AuthViewModel = viewModel(),
-    homeVm: HomeViewModel = viewModel()
+    authVm: AuthViewModel = viewModel(),    // ViewModel для аутентификации
+    homeVm: HomeViewModel = viewModel()     // ViewModel для данных главного экрана
 ) {
+    // Состояния: текущий пользователь и данные секций
     val userId          by authVm.currentUserId.collectAsState()
     val recentAlbums    by homeVm.recentAlbums.collectAsState()
     val mixes           by homeVm.dailyAlbums.collectAsState()
     val recommendations by homeVm.recommendations.collectAsState()
     val loading         by homeVm.isLoading.collectAsState()
 
+    // Плеер для воспроизведения треков
     val playerVm: PlayerViewModel = viewModel()
 
+    // Загрузка данных при входе пользователя
     LaunchedEffect(userId) {
         userId?.let { homeVm.loadHomeData(it) }
     }
 
+    // Показываем индикатор загрузки, пока данные не пришли
     if (loading) {
         Box(
             Modifier
@@ -52,6 +57,7 @@ fun HomeScreen(
         return
     }
 
+    // Основная разметка: заголовок и три секции альбомов
     Column(
         Modifier
             .fillMaxSize()
@@ -64,7 +70,7 @@ fun HomeScreen(
         )
         Spacer(Modifier.height(24.dp))
 
-        // Теперь “Recently Played” переходит на общий экран AlbumScreen
+        // Секция «Recently Played»
         AlbumSection(
             title        = "Recently Played",
             albums       = recentAlbums,
@@ -72,6 +78,7 @@ fun HomeScreen(
         )
         Spacer(Modifier.height(24.dp))
 
+        // Секция «Daily Mix»
         AlbumSection(
             title        = "Daily Mix",
             albums       = mixes,
@@ -79,6 +86,7 @@ fun HomeScreen(
         )
         Spacer(Modifier.height(24.dp))
 
+        // Секция «Today's Picks»
         AlbumSection(
             title        = "Today's Picks",
             albums       = recommendations,
@@ -93,6 +101,7 @@ private fun AlbumSection(
     albums: List<AlbumDisplay>,
     onAlbumClick: (String) -> Unit
 ) {
+    // Заголовок секции
     Text(text = title, style = MaterialTheme.typography.titleLarge)
     Spacer(Modifier.height(8.dp))
     LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -100,15 +109,14 @@ private fun AlbumSection(
             Column(
                 Modifier
                     .width(140.dp)
-                    .clickable { onAlbumClick(alb.userId) }
+                    .clickable { onAlbumClick(alb.userId) } // навигация по клику
             ) {
                 Card(
                     modifier = Modifier.size(140.dp),
-                    shape    = RoundedCornerShape(12.dp),
-                    colors   = CardDefaults.cardColors(MaterialTheme.colorScheme.surface)
+                    shape    = RoundedCornerShape(12.dp)
                 ) {
                     AsyncImage(
-                        model           = alb.coverUrl,
+                        model           = alb.coverUrl,           // обложка альбома
                         contentDescription = alb.title,
                         contentScale    = ContentScale.Crop,
                         modifier        = Modifier

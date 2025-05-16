@@ -1,3 +1,5 @@
+// Экран авторизации: ввод имени пользователя и пароля
+@file:Suppress("UnusedImport")
 package com.example.musicapp.ui.theme.screens
 
 import androidx.compose.foundation.clickable
@@ -17,13 +19,15 @@ import com.example.musicapp.ui.theme.viewmodel.AuthViewModel
 
 @Composable
 fun LoginScreen(
-    viewModel: AuthViewModel = viewModel(),
-    onLoginSuccess: () -> Unit,
-    onRegisterNav: () -> Unit
+    viewModel: AuthViewModel = viewModel(),        // ViewModel для управления состоянием аутентификации
+    onLoginSuccess: () -> Unit,                    // коллбэк при успешном входе
+    onRegisterNav: () -> Unit                      // навигация на экран регистрации
 ) {
+    // Состояния текстовых полей
     val username by viewModel.username.collectAsState()
     val password by viewModel.password.collectAsState()
 
+    // Вертикальный контейнер по центру экрана
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -31,6 +35,7 @@ fun LoginScreen(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // Поле ввода имени пользователя
         OutlinedTextField(
             value = username,
             onValueChange = viewModel::onUsernameChange,
@@ -40,6 +45,8 @@ fun LoginScreen(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
         )
         Spacer(Modifier.height(16.dp))
+
+        // Поле ввода пароля с действием клавиши "Done"
         OutlinedTextField(
             value = password,
             onValueChange = viewModel::onPasswordChange,
@@ -52,6 +59,8 @@ fun LoginScreen(
             })
         )
         Spacer(Modifier.height(24.dp))
+
+        // Кнопка входа, активируется при валидности ввода
         Button(
             onClick = { viewModel.login(onLoginSuccess) },
             modifier = Modifier.fillMaxWidth(),
@@ -60,6 +69,8 @@ fun LoginScreen(
             Text("Войти")
         }
         Spacer(Modifier.height(16.dp))
+
+        // Ссылка для перехода на экран регистрации
         Text(
             text = "Новый пользователь? Зарегистрироваться",
             modifier = Modifier.clickable(onClick = onRegisterNav)

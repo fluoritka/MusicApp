@@ -1,4 +1,4 @@
-// app/src/main/java/com/example/musicapp/ui/theme/screens/NavGraph.kt
+// Навигационный граф приложения: определяет все экраны и переходы
 package com.example.musicapp.ui.theme.screens
 
 import androidx.compose.runtime.Composable
@@ -28,16 +28,17 @@ fun NavGraph(
     navController: NavHostController,
     modifier: Modifier = Modifier
 ) {
-    // Shared ViewModels
+    // Инициализируем общие ViewModel: аутентификация и плеер
     val authVm   = viewModel<AuthViewModel>(LocalContext.current as ViewModelStoreOwner)
     val playerVm = viewModel<PlayerViewModel>(LocalContext.current as ViewModelStoreOwner)
 
+    // Основной контейнер навигации с корневым маршрутом "login"
     NavHost(
         navController    = navController,
         startDestination = "login",
         modifier         = modifier
     ) {
-        // Login
+        // Маршрут "login": экран входа в систему
         composable("login") {
             LoginScreen(
                 viewModel      = authVm,
@@ -50,7 +51,7 @@ fun NavGraph(
             )
         }
 
-        // Register
+        // Маршрут "register": экран регистрации нового пользователя
         composable("register") {
             RegisterScreen(
                 viewModel          = authVm,
@@ -59,7 +60,7 @@ fun NavGraph(
             )
         }
 
-        // Home
+        // Маршрут "home": главный экран с секциями альбомов
         composable("home") {
             val homeVm: HomeViewModel = viewModel()
             HomeScreen(
@@ -69,24 +70,24 @@ fun NavGraph(
             )
         }
 
-        // Search
+        // Маршрут "search": экран поиска треков
         composable("search") {
             SearchScreen()
         }
 
-        // Library
+        // Маршрут "library": экран библиотеки с плейлистами и избранным
         composable("library") {
             LibraryScreen(
                 onOpenPlaylist = { pid -> navController.navigate("plist/$pid") }
             )
         }
 
-        // Playlist Details
+        // Переход на детали плейлиста по ID
         composable(
             route     = "plist/{pid}",
             arguments = listOf(navArgument("pid") { type = NavType.StringType })
-        ) { back ->
-            val pid = back.arguments?.getString("pid").orEmpty()
+        ) { backStackEntry ->
+            val pid = backStackEntry.arguments?.getString("pid").orEmpty()
             PlaylistDetailScreen(
                 playlistId    = pid,
                 onBack        = { navController.popBackStack() },
@@ -94,19 +95,19 @@ fun NavGraph(
             )
         }
 
-        // Album (including Recently Played as userId="recent")
+        // Маршрут "album/{userId}": экран альбомов (recent или пользовательские)
         composable(
             route     = "album/{userId}",
             arguments = listOf(navArgument("userId") { type = NavType.StringType })
-        ) { back ->
-            val userId = back.arguments?.getString("userId").orEmpty()
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getString("userId").orEmpty()
             AlbumScreen(
                 userId        = userId,
                 onTrackClick = { navController.navigate("player") }
             )
         }
 
-        // Player
+        // Маршрут "player": полноэкранный плеер трека
         composable("player") {
             PlayerScreen(onBack = { navController.popBackStack() })
         }
